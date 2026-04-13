@@ -258,7 +258,9 @@ def test_group_by_agg_success(mock_df, mock_F):
     mock_F.expr.side_effect = [mock_expr1, mock_expr2]
 
     result = json.loads(
-        group_by_agg("df-orig", ["category"], ["sum(revenue) as total", "count(*) as cnt"])
+        group_by_agg(
+            "df-orig", ["category"], ["sum(revenue) as total", "count(*) as cnt"]
+        )
     )
 
     mock_source.groupBy.assert_called_once_with("category")
