@@ -18,13 +18,23 @@ def test_get_connector_spark_connect():
 
 
 def test_spark_connector_connect():
-    with patch("pyspark.sql.SparkSession.builder") as mock_builder:
-        mock_session = MagicMock()
-        mock_builder.remote.return_value.getOrCreate.return_value = mock_session
+    import spark_connect_mcp.connectors.spark as spark_mod
+
+    mock_spark_session = MagicMock()
+    mock_session = MagicMock()
+    mock_spark_session.builder.remote.return_value.getOrCreate.return_value = (
+        mock_session
+    )
+    with (
+        patch.object(spark_mod, "_PYSPARK_AVAILABLE", True),
+        patch.object(spark_mod, "SparkSession", mock_spark_session, create=True),
+    ):
         connector = SparkConnector()
         session = connector.connect({"url": "sc://localhost:15002"})
         assert session is mock_session
-        mock_builder.remote.assert_called_once_with("sc://localhost:15002")
+        mock_spark_session.builder.remote.assert_called_once_with(
+            "sc://localhost:15002"
+        )
 
 
 def test_spark_connector_disconnect():

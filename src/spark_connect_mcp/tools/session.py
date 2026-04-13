@@ -43,10 +43,15 @@ def start_session(
             }
         )
     except ImportError as e:
+        hint = (
+            "pip install spark-connect-mcp[databricks]"
+            if connection_type == "databricks"
+            else "pip install spark-connect-mcp[spark]"
+        )
         return json.dumps(
             {
                 "error": str(e),
-                "hint": "pip install spark-connect-mcp[databricks]",
+                "hint": hint,
             }
         )
     except ValueError as e:

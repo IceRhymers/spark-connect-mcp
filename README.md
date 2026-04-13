@@ -4,14 +4,13 @@ MCP server exposing Apache Spark Connect (and Databricks Connect) via DataFrame 
 
 ## Install
 
+Choose **one** backend — do not install both.
+
 ```bash
-# Via uvx (recommended for Claude Code / MCP)
-uvx spark-connect-mcp
+# OSS Spark Connect
+pip install "spark-connect-mcp[spark]"
 
-# Core (OSS Spark Connect)
-pip install spark-connect-mcp
-
-# With Databricks Connect support
+# Databricks Connect
 pip install "spark-connect-mcp[databricks]"
 ```
 
@@ -24,11 +23,13 @@ Add to your Claude Code MCP config:
   "mcpServers": {
     "spark": {
       "command": "uvx",
-      "args": ["spark-connect-mcp"]
+      "args": ["--from", "spark-connect-mcp[databricks]", "spark-connect-mcp"]
     }
   }
 }
 ```
+
+For OSS Spark Connect, replace `[databricks]` with `[spark]`.
 
 ## Status
 
