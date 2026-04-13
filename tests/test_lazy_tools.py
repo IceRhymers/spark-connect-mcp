@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 from spark_connect_mcp.tools.lazy import (
     drop,
     filter,
+    group_by_agg,
+    join,
     limit,
     load,
     select,
@@ -237,3 +239,105 @@ def test_limit_invalid_df_id(mock_df):
 
     assert "error" in result
     assert result["df_id"] == "bad-df"
+
+
+# ── group_by_agg ─────────────────────────────────────────────────────────────
+
+
+@patch("spark_connect_mcp.tools.lazy.F")
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_group_by_agg_success(mock_df, mock_F):
+    mock_source = MagicMock()
+    mock_df.registry.get.return_value = mock_source
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-agg"
+    mock_grouped = MagicMock()
+    mock_source.groupBy.return_value = mock_grouped
+    mock_expr1 = MagicMock()
+    mock_expr2 = MagicMock()
+    mock_F.expr.side_effect = [mock_expr1, mock_expr2]
+
+    result = json.loads(
+        group_by_agg("df-orig", ["category"], ["sum(revenue) as total", "count(*) as cnt"])
+    )
+
+    mock_source.groupBy.assert_called_once_with("category")
+    mock_grouped.agg.assert_called_once_with(mock_expr1, mock_expr2)
+    assert result["df_id"] == "df-agg"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_group_by_agg_invalid_df_id(mock_df):
+    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
+
+    result = json.loads(group_by_agg("bad-df", ["col"], ["count(*) as cnt"]))
+
+    assert "error" in result
+    assert result["df_id"] == "bad-df"
+
+
+@patch("spark_connect_mcp.tools.lazy.F")
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_group_by_agg_spark_error(mock_df, mock_F):
+    mock_source = MagicMock()
+    mock_df.registry.get.return_value = mock_source
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_source.groupBy.return_value.agg.side_effect = RuntimeError("bad expr")
+    mock_F.expr.return_value = MagicMock()
+
+    result = json.loads(group_by_agg("df-orig", ["col"], ["bad_expr"]))
+
+    assert "error" in result
+
+
+# ── join ─────────────────────────────────────────────────────────────────────
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_success_string_on(mock_df):
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-joined"
+
+    result = json.loads(join("df-left", "df-right", "user_id", "inner"))
+
+    mock_left.join.assert_called_once_with(mock_right, "user_id", "inner")
+    assert result["df_id"] == "df-joined"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_success_list_on(mock_df):
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-joined"
+
+    result = json.loads(join("df-left", "df-right", ["user_id", "date"], "left"))
+
+    mock_left.join.assert_called_once_with(mock_right, ["user_id", "date"], "left")
+    assert result["df_id"] == "df-joined"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_invalid_left_df_id(mock_df):
+    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
+
+    result = json.loads(join("bad-df", "df-right", "id"))
+
+    assert "error" in result
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_spark_error(mock_df):
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_left.join.side_effect = RuntimeError("join failed")
+
+    result = json.loads(join("df-left", "df-right", "id", "inner"))
+
+    assert "error" in result
