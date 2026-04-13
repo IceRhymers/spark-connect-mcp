@@ -75,7 +75,7 @@ def test_start_session_connector_error():
 
 
 def test_start_session_serverless_success():
-    """Serverless path: DatabricksSession.getActiveSession() is used, url_or_profile=serverless."""
+    """Serverless path: DatabricksSession.builder.serverless() is used, url_or_profile=serverless."""
     with (
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
@@ -101,14 +101,14 @@ def test_start_session_serverless_no_active_session():
     ):
         mock_gc.return_value = MagicMock()
         mock_sreg.registry.start.side_effect = RuntimeError(
-            "No active Databricks session. getActiveSession() returned None. "
+            "Failed to create serverless Databricks session. "
             "serverless=True is only valid inside Databricks Apps or notebooks."
         )
         from spark_connect_mcp.tools.session import start_session
 
         result = json.loads(start_session("databricks", serverless=True))
         assert "error" in result
-        assert "None" in result["error"] or "active" in result["error"].lower()
+        assert "serverless" in result["error"].lower()
 
 
 def test_close_session_success():

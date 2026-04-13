@@ -23,7 +23,7 @@ def start_session(
         connection_type: 'spark_connect' or 'databricks'
         url: Spark Connect URL (e.g. 'sc://localhost:15002') for spark_connect
         profile: Databricks CLI profile name for databricks connections
-        serverless: If True, use DatabricksSession.getActiveSession() (Databricks Apps/notebooks)
+        serverless: If True, use DatabricksSession.builder.serverless() (Databricks Apps/notebooks)
     """
     config = {
         "connection_type": connection_type,
