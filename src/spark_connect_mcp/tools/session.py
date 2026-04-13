@@ -14,6 +14,7 @@ def start_session(
     connection_type: str,
     url: str | None = None,
     profile: str | None = None,
+    serverless: bool = False,
 ) -> str:
     """Start a Spark session and return a session_id handle.
 
@@ -21,15 +22,21 @@ def start_session(
         connection_type: 'spark_connect' or 'databricks'
         url: Spark Connect URL (e.g. 'sc://localhost:15002') for spark_connect
         profile: Databricks CLI profile name for databricks connections
+        serverless: If True, use DatabricksSession.getActiveSession() (Databricks Apps/notebooks)
     """
-    config = {"connection_type": connection_type, "url": url, "profile": profile}
+    config = {
+        "connection_type": connection_type,
+        "url": url,
+        "profile": profile,
+        "serverless": serverless,
+    }
     try:
         connector = get_connector(connection_type)
         session_id = session_mod.registry.start(connector, config)
         return json.dumps({
             "session_id": session_id,
             "connection_type": connection_type,
-            "message": f"Connected via {connection_type}",
+            "message": f"Connected via {connection_type}" + (" (serverless)" if serverless else ""),
         })
     except ImportError as e:
         return json.dumps({
