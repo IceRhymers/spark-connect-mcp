@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 databricks = [
-    "databricks-connect>=15.0",
+    "databricks-connect>=18.0",
 ]
 
 [project.scripts]
