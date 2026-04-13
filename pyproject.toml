@@ -28,3 +28,9 @@ spark-connect-mcp = "spark_connect_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spark_connect_mcp"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
