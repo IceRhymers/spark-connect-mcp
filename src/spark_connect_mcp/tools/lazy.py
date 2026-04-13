@@ -1,4 +1,4 @@
-"""Lazy DataFrame MCP tools: load, sql, filter, select, with_column, drop, sort, limit."""
+"""Lazy DataFrame MCP tools: load, table, sql, filter, select, with_column, drop, sort, limit."""
 
 from __future__ import annotations
 
@@ -39,6 +39,31 @@ def load(session_id: str, path: str, format: str = "parquet") -> str:  # noqa: A
         df = spark.read.format(format).load(path)
         df_id = df_mod.registry.register(session_id, df)
         return json.dumps({"df_id": df_id, "message": f"Loaded {path} as {format}"})
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "session_id": session_id})
+
+
+@mcp.tool()
+def table(session_id: str, name: str) -> str:
+    """Load a catalog table into a lazy DataFrame handle.
+
+    Use this for Unity Catalog and Databricks managed tables where path-based
+    access is not supported. Accepts three-part names (catalog.schema.table),
+    two-part names (schema.table), or bare table names.
+    No Spark job is triggered — use show or collect to materialize.
+
+    Args:
+        session_id: Active session handle from start_session
+        name: Table name (e.g. 'main.default.my_table' or 'my_table')
+    """
+    try:
+        spark = session_mod.registry.get(session_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "session_id": session_id})
+    try:
+        df = spark.read.table(name)
+        df_id = df_mod.registry.register(session_id, df)
+        return json.dumps({"df_id": df_id, "message": f"Loaded table {name}"})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
 
