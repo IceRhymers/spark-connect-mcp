@@ -227,16 +227,59 @@ def limit(df_id: str, n: int) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
 
 
-# ── Deferred tools (implemented in subsequent issues) ────────────────────────
-
-
 @mcp.tool()
 def group_by_agg(df_id: str, group_cols: list[str], agg_exprs: list[str]) -> str:
-    """Group and aggregate a DataFrame. (Not yet implemented — see issue #9.)"""
-    raise NotImplementedError
+    """Group by columns and aggregate using SQL expressions. Returns a new df_id.
+
+    agg_exprs support standard Spark SQL expressions:
+    e.g. "sum(revenue) as total", "count(*) as cnt", "avg(price) as avg_price".
+    No Spark job is triggered — use show or collect to materialize.
+
+    Args:
+        df_id: Source DataFrame handle
+        group_cols: Columns to group by
+        agg_exprs: SQL aggregation expressions (one per output column)
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+        session_id = df_mod.registry.session_for(df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "df_id": df_id})
+    try:
+        agg_cols = [F.expr(e) for e in agg_exprs]
+        new_df = df.groupBy(*group_cols).agg(*agg_cols)
+        new_df_id = df_mod.registry.register(session_id, new_df)
+        return json.dumps({"df_id": new_df_id})
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "df_id": df_id})
 
 
 @mcp.tool()
-def join(left_df_id: str, right_df_id: str, on: str, how: str = "inner") -> str:
-    """Join two DataFrames. (Not yet implemented — see issue #9.)"""
-    raise NotImplementedError
+def join(
+    left_df_id: str,
+    right_df_id: str,
+    on: str | list[str],
+    how: str = "inner",
+) -> str:
+    """Join two DataFrames. Returns a new df_id.
+
+    No Spark job is triggered — use show or collect to materialize.
+
+    Args:
+        left_df_id: Left DataFrame handle
+        right_df_id: Right DataFrame handle
+        on: Column name, list of column names, or SQL expression string for the join condition
+        how: Join type — inner (default), left, right, outer, semi, anti
+    """
+    try:
+        left_df = df_mod.registry.get(left_df_id)
+        session_id = df_mod.registry.session_for(left_df_id)
+        right_df = df_mod.registry.get(right_df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e)})
+    try:
+        new_df = left_df.join(right_df, on, how)
+        new_df_id = df_mod.registry.register(session_id, new_df)
+        return json.dumps({"df_id": new_df_id})
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e)})
