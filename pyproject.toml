@@ -45,6 +45,9 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]  # line length handled by ruff format
 
+[tool.ruff.lint.isort]
+known-first-party = ["spark_connect_mcp"]
+
 [tool.mypy]
 python_version = "3.12"
 files = ["src/"]

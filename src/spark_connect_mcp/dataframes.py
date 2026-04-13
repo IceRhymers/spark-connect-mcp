@@ -71,6 +71,17 @@ class DataFrameRegistry:
                 self._df_to_session.pop(df_id, None)
             return len(df_ids)
 
+    def session_for(self, df_id: str) -> str:
+        """Return the session_id that owns df_id. Raises KeyError if not found."""
+        with self._lock:
+            try:
+                return self._df_to_session[df_id]
+            except KeyError:
+                raise KeyError(
+                    f"DataFrame {df_id!r} not found. "
+                    "Use a tool that returns a df_id handle to create one."
+                ) from None
+
 
 # Module-level singleton
 registry = DataFrameRegistry()
