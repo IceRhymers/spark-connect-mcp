@@ -1,12 +1,13 @@
 # spark-connect-mcp
 
-> MCP server exposing Spark Connect DataFrame API + SQL for AI agents.
-
-A Python MCP server that gives AI agents (Claude Code, Agent SDK) a handle-based DataFrame API over Apache Spark Connect, with SQL as an escape hatch. Open-source Spark Connect is the primary target; Databricks Connect is an optional extra.
+MCP server exposing Apache Spark Connect (and Databricks Connect) via DataFrame and SQL tools for AI agents.
 
 ## Install
 
 ```bash
+# Via uvx (recommended for Claude Code / MCP)
+uvx spark-connect-mcp
+
 # Core (OSS Spark Connect)
 pip install spark-connect-mcp
 
@@ -14,7 +15,9 @@ pip install spark-connect-mcp
 pip install "spark-connect-mcp[databricks]"
 ```
 
-## Usage with Claude Code
+## Quick Start
+
+Add to your Claude Code MCP config:
 
 ```json
 {
@@ -29,8 +32,8 @@ pip install "spark-connect-mcp[databricks]"
 
 ## Status
 
-🚧 Under active development. See [issues](https://github.com/IceRhymers/spark-connect-mcp/issues) for the roadmap.
+Under active development. See [issues](https://github.com/IceRhymers/spark-connect-mcp/issues) for the roadmap.
 
 ## License
 
-MIT
+Apache-2.0

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spark-connect-mcp"
+version = "0.1.0"
+description = "MCP server exposing Apache Spark Connect (and Databricks Connect) via DataFrame and SQL tools for AI agents"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "IceRhymers" },
+]
+
+dependencies = [
+    "mcp[cli]",
+    "pyspark[connect]>=3.5",
+]
+
+[project.optional-dependencies]
+databricks = [
+    "databricks-connect>=15.0",
+]
+
+[project.scripts]
+spark-connect-mcp = "spark_connect_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spark_connect_mcp"]
