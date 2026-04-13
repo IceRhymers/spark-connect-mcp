@@ -15,12 +15,14 @@ authors = [
 
 dependencies = [
     "mcp[cli]",
-    "pyspark[connect]>=3.5",
 ]
 
 [project.optional-dependencies]
+spark = [
+    "pyspark[connect]>=3.5",
+]
 databricks = [
-    "databricks-connect>=18.0",
+    "databricks-connect==18.0.5",
 ]
 
 [project.scripts]

@@ -257,7 +257,7 @@ wheels = [
 
 [[package]]
 name = "databricks-connect"
-version = "18.1.2"
+version = "18.0.5"
 source = { registry = "https://pypi-proxy.dev.databricks.com/simple/" }
 dependencies = [
     { name = "databricks-sdk" },
@@ -274,7 +274,7 @@ dependencies = [
     { name = "zstandard" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/ab/0f51fda312fe10737e67edf18c1fb000a95e778ff19e59530aeb54b0f30c/databricks_connect-18.1.2-py2.py3-none-any.whl", hash = "sha256:b9133a113d111acd828d5fd8aad588a9f355b431d6926dbaeb3e28f4757cc8bb", size = 2842760, upload-time = "2026-03-19T08:17:26.274Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/97/9f6aa0ce81b59b91f17ad1a0954d1f54b5011be907856fa1f3c5bc84cbe0/databricks_connect-18.0.5-py2.py3-none-any.whl", hash = "sha256:7cd607a6fe503699184ad4ff2569e0fb3dc98d714b405ff6eb3d3e94107adcb6", size = 2779414, upload-time = "2026-03-03T09:39:05.782Z" },
 ]
 
 [[package]]
@@ -1253,12 +1253,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp", extra = ["cli"] },
-    { name = "pyspark", extra = ["connect"] },
 ]
 
 [package.optional-dependencies]
 databricks = [
     { name = "databricks-connect" },
+]
+spark = [
+    { name = "pyspark", extra = ["connect"] },
 ]
 
 [package.dev-dependencies]
@@ -1270,11 +1272,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "databricks-connect", marker = "extra == 'databricks'", specifier = ">=18.0" },
+    { name = "databricks-connect", marker = "extra == 'databricks'", specifier = "==18.0.5" },
     { name = "mcp", extras = ["cli"] },
-    { name = "pyspark", extras = ["connect"], specifier = ">=3.5" },
+    { name = "pyspark", extras = ["connect"], marker = "extra == 'spark'", specifier = ">=3.5" },
 ]
-provides-extras = ["databricks"]
+provides-extras = ["spark", "databricks"]
 
 [package.metadata.requires-dev]
 dev = [

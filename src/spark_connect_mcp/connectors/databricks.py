@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pyspark.sql import SparkSession
+from typing import TYPE_CHECKING
 
 from spark_connect_mcp.connectors.base import BaseConnector
+
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
 
 try:
     from databricks.connect import DatabricksSession
