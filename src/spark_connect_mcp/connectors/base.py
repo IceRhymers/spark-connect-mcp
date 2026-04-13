@@ -2,16 +2,18 @@
 
 from abc import ABC, abstractmethod
 
+from pyspark.sql import SparkSession
+
 
 class BaseConnector(ABC):
     """Abstract base class for Spark session connectors."""
 
     @abstractmethod
-    def get_session(self) -> "SparkSession":  # noqa: F821
-        """Return the active SparkSession."""
+    def connect(self, config: dict) -> SparkSession:
+        """Create and return a SparkSession from the given config."""
         ...
 
     @abstractmethod
-    def close(self) -> None:
-        """Close the session and release resources."""
+    def disconnect(self, session: SparkSession) -> None:
+        """Stop the session and release resources."""
         ...

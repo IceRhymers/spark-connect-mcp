@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pyspark.sql import SparkSession
+
 from spark_connect_mcp.connectors.base import BaseConnector
 
 try:
@@ -28,6 +30,12 @@ class DatabricksConnector(BaseConnector):
             raise ImportError(
                 "Install spark-connect-mcp[databricks] for Databricks Connect support"
             )
+        self._profile = profile
+        self._serverless = serverless
+
+    def connect(self, config: dict) -> SparkSession:
+        profile = config.get("profile", self._profile)
+        serverless = config.get("serverless", self._serverless)
         if serverless:
             session = DatabricksSession.getActiveSession()
             if session is None:
@@ -37,12 +45,8 @@ class DatabricksConnector(BaseConnector):
                     "(Databricks Apps, notebooks). "
                     "Use profile= for classic cluster connections."
                 )
-            self._session = session
-        else:
-            self._session = DatabricksSession.builder.profile(profile).getOrCreate()
+            return session
+        return DatabricksSession.builder.profile(profile).getOrCreate()
 
-    def get_session(self):
-        return self._session
-
-    def close(self) -> None:
-        self._session.stop()
+    def disconnect(self, session: SparkSession) -> None:
+        session.stop()
