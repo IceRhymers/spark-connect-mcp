@@ -1,4 +1,4 @@
-.PHONY: install test lint fmt build
+.PHONY: install test lint fmt fmt-check typecheck check build
 
 install:
 	uv sync --extra databricks
@@ -11,6 +11,14 @@ lint:
 
 fmt:
 	uv run ruff format src/ tests/
+
+fmt-check:
+	uv run ruff format --check src/ tests/
+
+typecheck:
+	uv run mypy
+
+check: lint fmt-check typecheck
 
 build:
 	uv build

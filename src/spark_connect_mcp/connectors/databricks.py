@@ -39,7 +39,8 @@ class DatabricksConnector(BaseConnector):
         serverless = config.get("serverless", self._serverless)
         self._last_serverless = serverless
         if serverless:
-            session = DatabricksSession.getActiveSession()
+            # getActiveSession is a runtime API not reflected in type stubs
+            session = DatabricksSession.getActiveSession()  # type: ignore[attr-defined]
             if session is None:
                 raise RuntimeError(
                     "No active Databricks session found. "
@@ -47,7 +48,9 @@ class DatabricksConnector(BaseConnector):
                     "(Databricks Apps, notebooks). "
                     "Use profile= for classic cluster connections."
                 )
-            return session
+            return session  # type: ignore[no-any-return]
+        if profile is None:
+            profile = "DEFAULT"
         return DatabricksSession.builder.profile(profile).getOrCreate()
 
     def disconnect(self, session: SparkSession) -> None:

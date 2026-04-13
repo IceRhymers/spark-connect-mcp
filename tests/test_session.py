@@ -1,8 +1,11 @@
 """Tests for SessionRegistry."""
-from datetime import timezone
+
+from datetime import UTC
 from unittest.mock import MagicMock
+
 import pytest
-from spark_connect_mcp.session import SessionRegistry, SessionInfo
+
+from spark_connect_mcp.session import SessionRegistry
 
 
 def _make_connector(mock_session=None):
@@ -14,7 +17,9 @@ def _make_connector(mock_session=None):
 def test_start_returns_uuid():
     reg = SessionRegistry()
     connector = _make_connector()
-    sid = reg.start(connector, {"url": "sc://localhost:15002", "connection_type": "spark_connect"})
+    sid = reg.start(
+        connector, {"url": "sc://localhost:15002", "connection_type": "spark_connect"}
+    )
     assert len(sid) == 36  # UUID4 format
     assert "-" in sid
 
@@ -22,14 +27,16 @@ def test_start_returns_uuid():
 def test_start_stores_session_info():
     reg = SessionRegistry()
     connector = _make_connector()
-    sid = reg.start(connector, {"url": "sc://host:15002", "connection_type": "spark_connect"})
+    sid = reg.start(
+        connector, {"url": "sc://host:15002", "connection_type": "spark_connect"}
+    )
     sessions = reg.list()
     assert len(sessions) == 1
     info = sessions[0]
     assert info.session_id == sid
     assert info.connection_type == "spark_connect"
     assert info.url_or_profile == "sc://host:15002"
-    assert info.created_at.tzinfo == timezone.utc
+    assert info.created_at.tzinfo == UTC
 
 
 def test_get_returns_spark_session():
