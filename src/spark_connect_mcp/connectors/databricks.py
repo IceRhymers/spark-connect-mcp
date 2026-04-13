@@ -20,9 +20,8 @@ class DatabricksConnector(BaseConnector):
     Two connection modes:
     - profile (default): DatabricksSession.builder.profile(profile).getOrCreate()
       Use for classic clusters and local dev with a ~/.databrickscfg profile.
-    - serverless: DatabricksSession.getActiveSession()
-      Use inside Databricks Apps, Jobs, or notebooks running on serverless compute
-      where a session is already active in the environment.
+    - serverless: DatabricksSession.builder.serverless().getOrCreate()
+      Use inside Databricks Apps, Jobs, or notebooks running on serverless compute.
     """
 
     def __init__(self, profile: str | None = "DEFAULT", serverless: bool = False):
@@ -39,15 +38,9 @@ class DatabricksConnector(BaseConnector):
         serverless = config.get("serverless", self._serverless)
         self._last_serverless = serverless
         if serverless:
-            session = DatabricksSession.getActiveSession()
-            if session is None:
-                raise RuntimeError(
-                    "No active Databricks session found. "
-                    "getActiveSession() only works in serverless contexts "
-                    "(Databricks Apps, notebooks). "
-                    "Use profile= for classic cluster connections."
-                )
-            return session
+            return DatabricksSession.builder.serverless().getOrCreate()
+        if profile is None:
+            profile = "DEFAULT"
         return DatabricksSession.builder.profile(profile).getOrCreate()
 
     def disconnect(self, session: SparkSession) -> None:

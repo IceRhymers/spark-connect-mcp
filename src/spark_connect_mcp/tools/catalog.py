@@ -1,10 +1,11 @@
 """Catalog MCP tools: list_tables, describe_table, table_schema."""
+
 from __future__ import annotations
 
 import json
 
-from spark_connect_mcp.server import mcp
 from spark_connect_mcp import session as session_mod
+from spark_connect_mcp.server import mcp
 
 
 @mcp.tool()
@@ -20,18 +21,24 @@ def list_tables(session_id: str, database: str | None = None) -> str:
     except KeyError as e:
         return json.dumps({"error": str(e), "session_id": session_id})
     try:
-        tables = spark.catalog.listTables(database) if database else spark.catalog.listTables()
-        return json.dumps([
-            {
-                "name": t.name,
-                "database": t.database,
-                "catalog": t.catalog,
-                "namespace": list(t.namespace) if t.namespace else None,
-                "tableType": t.tableType,
-                "isTemporary": t.isTemporary,
-            }
-            for t in tables
-        ])
+        tables = (
+            spark.catalog.listTables(database)
+            if database
+            else spark.catalog.listTables()
+        )
+        return json.dumps(
+            [
+                {
+                    "name": t.name,
+                    "database": t.database,
+                    "catalog": t.catalog,
+                    "namespace": list(t.namespace) if t.namespace else None,
+                    "tableType": t.tableType,
+                    "isTemporary": t.isTemporary,
+                }
+                for t in tables
+            ]
+        )
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
 
@@ -54,21 +61,25 @@ def describe_table(session_id: str, table_name: str) -> str:
     try:
         table_info = spark.catalog.getTable(table_name)
         cols = spark.catalog.listColumns(table_name)
-        return json.dumps({
-            "table_name": table_name,
-            "tableType": table_info.tableType,
-            "catalog": table_info.catalog,
-            "namespace": list(table_info.namespace) if table_info.namespace else None,
-            "columns": [
-                {
-                    "name": c.name,
-                    "dataType": c.dataType,
-                    "nullable": c.nullable,
-                    "isPartition": c.isPartition,
-                }
-                for c in cols
-            ],
-        })
+        return json.dumps(
+            {
+                "table_name": table_name,
+                "tableType": table_info.tableType,
+                "catalog": table_info.catalog,
+                "namespace": list(table_info.namespace)
+                if table_info.namespace
+                else None,
+                "columns": [
+                    {
+                        "name": c.name,
+                        "dataType": c.dataType,
+                        "nullable": c.nullable,
+                        "isPartition": c.isPartition,
+                    }
+                    for c in cols
+                ],
+            }
+        )
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
 

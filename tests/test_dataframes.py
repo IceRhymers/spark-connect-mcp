@@ -1,4 +1,5 @@
 """Tests for DataFrameRegistry."""
+
 from __future__ import annotations
 
 import uuid

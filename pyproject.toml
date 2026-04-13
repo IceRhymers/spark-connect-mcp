@@ -31,6 +31,21 @@ packages = ["src/spark_connect_mcp"]
 
 [dependency-groups]
 dev = [
+    "mypy>=1.10",
     "pytest>=8.0",
     "ruff>=0.4",
 ]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # line length handled by ruff format
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

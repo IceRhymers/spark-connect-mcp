@@ -1,4 +1,5 @@
 """DataFrameRegistry — maps opaque df_id handles to PySpark DataFrames."""
+
 from __future__ import annotations
 
 import threading
@@ -25,13 +26,13 @@ class DataFrameRegistry:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         # (session_id, df_id) -> DataFrame
-        self._frames: dict[tuple[str, str], "DataFrame"] = {}
+        self._frames: dict[tuple[str, str], DataFrame] = {}
         # session_id -> set of df_ids (for O(1) clear_session)
         self._session_index: dict[str, set[str]] = {}
         # df_id -> session_id (reverse lookup for get/remove)
         self._df_to_session: dict[str, str] = {}
 
-    def register(self, session_id: str, df: "DataFrame") -> str:
+    def register(self, session_id: str, df: DataFrame) -> str:
         """Store a DataFrame and return its opaque df_id handle."""
         df_id = str(uuid.uuid4())
         with self._lock:
@@ -40,7 +41,7 @@ class DataFrameRegistry:
             self._df_to_session[df_id] = session_id
         return df_id
 
-    def get(self, df_id: str) -> "DataFrame":
+    def get(self, df_id: str) -> DataFrame:
         """Return the DataFrame for df_id. Raises KeyError if not found."""
         with self._lock:
             session_id = self._df_to_session.get(df_id)

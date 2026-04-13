@@ -1,4 +1,5 @@
 """Tests for catalog MCP tools."""
+
 from __future__ import annotations
 
 import json
@@ -9,7 +10,9 @@ import pytest
 
 from spark_connect_mcp.tools.catalog import describe_table, list_tables, table_schema
 
-Table = namedtuple("Table", ["name", "database", "catalog", "namespace", "tableType", "isTemporary"])
+Table = namedtuple(
+    "Table", ["name", "database", "catalog", "namespace", "tableType", "isTemporary"]
+)
 Column = namedtuple("Column", ["name", "dataType", "nullable", "isPartition"])
 
 
@@ -58,7 +61,9 @@ def test_list_tables_invalid_session(mock_session_mod):
 @patch("spark_connect_mcp.tools.catalog.session_mod")
 def test_list_tables_catalog_error(mock_session_mod, mock_spark):
     mock_session_mod.registry.get.return_value = mock_spark
-    mock_spark.catalog.listTables.side_effect = Exception("AnalysisException: db not found")
+    mock_spark.catalog.listTables.side_effect = Exception(
+        "AnalysisException: db not found"
+    )
     result = json.loads(list_tables("sid-1"))
     assert "error" in result
     assert "AnalysisException" in result["error"]
@@ -72,7 +77,12 @@ def test_list_tables_catalog_error(mock_session_mod, mock_spark):
 def test_describe_table_success(mock_session_mod, mock_spark):
     mock_session_mod.registry.get.return_value = mock_spark
     mock_spark.catalog.getTable.return_value = Table(
-        "t1", "db1", "cat1", ["cat1", "db1"], "MANAGED", False,
+        "t1",
+        "db1",
+        "cat1",
+        ["cat1", "db1"],
+        "MANAGED",
+        False,
     )
     mock_spark.catalog.listColumns.return_value = [
         Column("id", "int", False, False),
