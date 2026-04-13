@@ -32,10 +32,12 @@ class DatabricksConnector(BaseConnector):
             )
         self._profile = profile
         self._serverless = serverless
+        self._last_serverless = False
 
     def connect(self, config: dict) -> SparkSession:
         profile = config.get("profile", self._profile)
         serverless = config.get("serverless", self._serverless)
+        self._last_serverless = serverless
         if serverless:
             session = DatabricksSession.getActiveSession()
             if session is None:
@@ -49,4 +51,7 @@ class DatabricksConnector(BaseConnector):
         return DatabricksSession.builder.profile(profile).getOrCreate()
 
     def disconnect(self, session: SparkSession) -> None:
+        if self._last_serverless:
+            # Serverless sessions are owned by the runtime — do not stop them.
+            return
         session.stop()
