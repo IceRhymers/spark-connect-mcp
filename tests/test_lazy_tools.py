@@ -343,3 +343,79 @@ def test_join_spark_error(mock_df):
     result = json.loads(join("df-left", "df-right", "id", "inner"))
 
     assert "error" in result
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_outer_multi_column(mock_df):
+    """outer join with multiple join keys — both sides may have unmatched rows."""
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-outer"
+
+    result = json.loads(
+        join("df-left", "df-right", ["order_id", "product_id"], "outer")
+    )
+
+    mock_left.join.assert_called_once_with(
+        mock_right, ["order_id", "product_id"], "outer"
+    )
+    assert result["df_id"] == "df-outer"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_left_anti(mock_df):
+    """left anti — returns only rows in left with no match in right."""
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-anti"
+
+    result = json.loads(join("df-left", "df-right", "user_id", "anti"))
+
+    mock_left.join.assert_called_once_with(mock_right, "user_id", "anti")
+    assert result["df_id"] == "df-anti"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_left_semi(mock_df):
+    """left semi — returns only left rows that have a match in right, no right cols."""
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-semi"
+
+    result = json.loads(join("df-left", "df-right", ["user_id", "region"], "semi"))
+
+    mock_left.join.assert_called_once_with(mock_right, ["user_id", "region"], "semi")
+    assert result["df_id"] == "df-semi"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_right(mock_df):
+    """right join — all right rows preserved, nulls for unmatched left rows."""
+    mock_left = MagicMock()
+    mock_right = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, mock_right]
+    mock_df.registry.session_for.return_value = "sess-1"
+    mock_df.registry.register.return_value = "df-right-joined"
+
+    result = json.loads(join("df-left", "df-right", "event_id", "right"))
+
+    mock_left.join.assert_called_once_with(mock_right, "event_id", "right")
+    assert result["df_id"] == "df-right-joined"
+
+
+@patch("spark_connect_mcp.tools.lazy.df_mod")
+def test_join_invalid_right_df_id(mock_df):
+    """right df_id not found — error returned."""
+    mock_left = MagicMock()
+    mock_df.registry.get.side_effect = [mock_left, KeyError("DataFrame not found")]
+    mock_df.registry.session_for.return_value = "sess-1"
+
+    result = json.loads(join("df-left", "bad-right", "id"))
+
+    assert "error" in result
