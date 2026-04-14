@@ -1,228 +1,121 @@
-"""Tests for execution MCP tools."""
+"""Execution / action tools — trigger computation on lazy DataFrames."""
 
 from __future__ import annotations
 
+import io
 import json
-from unittest.mock import MagicMock, patch
-
-from spark_connect_mcp.tools.exec import (
-    MAX_COLLECT_LIMIT,
-    collect,
-    count,
-    describe,
-    schema,
-    show,
-)
-
-# ── show ─────────────────────────────────────────────────────────────────────
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_show_success(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-
-    def fake_show(n, truncate):
-        print("+---+----+\n| id|name|\n+---+----+\n|  1| foo|\n+---+----+")
-
-    mock_frame.show.side_effect = fake_show
-
-    result = show("df-1", n=5, truncate=True)
-
-    mock_frame.show.assert_called_once_with(5, True)
-    assert "+---+" in result
-    assert "foo" in result
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_show_invalid_df_id(mock_df):
-    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
-
-    result = show("bad-df")
-
-    assert "Error" in result
-    assert "bad-df" not in result or "Error" in result
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_show_spark_error(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.show.side_effect = RuntimeError("analysis failed")
-
-    result = show("df-1")
-
-    assert "Error" in result
-
-
-# ── collect ──────────────────────────────────────────────────────────────────
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_collect_success(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    row1 = MagicMock()
-    row1.asDict.return_value = {"id": 1, "name": "Alice"}
-    row2 = MagicMock()
-    row2.asDict.return_value = {"id": 2, "name": "Bob"}
-    mock_frame.limit.return_value.collect.return_value = [row1, row2]
-
-    result = json.loads(collect("df-1", limit=10))
-
-    mock_frame.limit.assert_called_once_with(10)
-    assert result == [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_collect_enforces_max_limit(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.limit.return_value.collect.return_value = []
-
-    collect("df-1", limit=99999)
-
-    mock_frame.limit.assert_called_once_with(MAX_COLLECT_LIMIT)
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_collect_invalid_df_id(mock_df):
-    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
-
-    result = json.loads(collect("bad-df"))
-
-    assert "error" in result
-    assert result["df_id"] == "bad-df"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_collect_spark_error(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.limit.return_value.collect.side_effect = RuntimeError("OOM")
-
-    result = json.loads(collect("df-1"))
-
-    assert "error" in result
-
-
-# ── count ────────────────────────────────────────────────────────────────────
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_count_success(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.count.return_value = 42
-
-    result = json.loads(count("df-1"))
-
-    mock_frame.count.assert_called_once()
-    assert result == {"count": 42, "df_id": "df-1"}
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_count_invalid_df_id(mock_df):
-    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
-
-    result = json.loads(count("bad-df"))
-
-    assert "error" in result
-    assert result["df_id"] == "bad-df"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_count_spark_error(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.count.side_effect = RuntimeError("count failed")
-
-    result = json.loads(count("df-1"))
-
-    assert "error" in result
-
-
-# ── schema ───────────────────────────────────────────────────────────────────
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_schema_success(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.schema.jsonValue.return_value = {
-        "type": "struct",
-        "fields": [{"name": "id", "type": "integer", "nullable": True, "metadata": {}}],
-    }
-
-    result = json.loads(schema("df-1"))
-
-    assert result["type"] == "struct"
-    assert result["fields"][0]["name"] == "id"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_schema_invalid_df_id(mock_df):
-    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
-
-    result = json.loads(schema("bad-df"))
-
-    assert "error" in result
-    assert result["df_id"] == "bad-df"
-
-
-# ── describe ─────────────────────────────────────────────────────────────────
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_describe_all_columns(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    stat_row = MagicMock()
-    stat_row.asDict.return_value = {
-        "summary": "count",
-        "age": "100",
-        "salary": "75000.0",
-    }
-    mock_frame.describe.return_value.collect.return_value = [stat_row]
-
-    result = json.loads(describe("df-1"))
-
-    mock_frame.describe.assert_called_once_with()
-    assert result[0]["summary"] == "count"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_describe_specific_columns(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    stat_row = MagicMock()
-    stat_row.asDict.return_value = {"summary": "mean", "age": "35.5"}
-    mock_frame.describe.return_value.collect.return_value = [stat_row]
-
-    result = json.loads(describe("df-1", columns=["age"]))
-
-    mock_frame.describe.assert_called_once_with("age")
-    assert result[0]["summary"] == "mean"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_describe_invalid_df_id(mock_df):
-    mock_df.registry.get.side_effect = KeyError("DataFrame not found")
-
-    result = json.loads(describe("bad-df"))
-
-    assert "error" in result
-    assert result["df_id"] == "bad-df"
-
-
-@patch("spark_connect_mcp.tools.exec.df_mod")
-def test_describe_spark_error(mock_df):
-    mock_frame = MagicMock()
-    mock_df.registry.get.return_value = mock_frame
-    mock_frame.describe.return_value.collect.side_effect = RuntimeError(
-        "describe failed"
-    )
-
-    result = json.loads(describe("df-1", columns=["revenue"]))
-
-    assert "error" in result
+from contextlib import redirect_stdout
+
+from spark_connect_mcp import dataframes as df_mod
+from spark_connect_mcp.server import mcp
+
+# Maximum rows collect() will return to prevent agent-triggered OOM.
+MAX_COLLECT_LIMIT = 1000
+
+
+@mcp.tool()
+def show(df_id: str, n: int = 20, truncate: bool = True) -> str:
+    """Show the first n rows of a DataFrame as a formatted ASCII table.
+
+    Triggers a Spark job. Returns plain text (not JSON) for direct display.
+
+    Args:
+        df_id: DataFrame handle
+        n: Number of rows to show (default 20)
+        truncate: Truncate long values in cells (default True)
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+    except KeyError as e:
+        return f"Error: {e}"
+    try:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            df.show(n, truncate)
+        return buf.getvalue()
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def collect(df_id: str, limit: int = 100) -> str:
+    """Collect rows as a JSON list of dicts.
+
+    Triggers a Spark job. Enforces a hard maximum of MAX_COLLECT_LIMIT rows
+    to prevent agents from pulling entire large tables into memory.
+
+    Args:
+        df_id: DataFrame handle
+        limit: Max rows to collect (default 100, hard max 1000)
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "df_id": df_id})
+    try:
+        safe_limit = min(limit, MAX_COLLECT_LIMIT)
+        rows = df.limit(safe_limit).collect()
+        return json.dumps([row.asDict() for row in rows])
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "df_id": df_id})
+
+
+@mcp.tool()
+def count(df_id: str) -> str:
+    """Return the row count of a DataFrame.
+
+    Triggers a Spark job (full table scan).
+
+    Args:
+        df_id: DataFrame handle
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "df_id": df_id})
+    try:
+        n = df.count()
+        return json.dumps({"count": n, "df_id": df_id})
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "df_id": df_id})
+
+
+@mcp.tool()
+def schema(df_id: str) -> str:
+    """Return the schema of a DataFrame as JSON.
+
+    May trigger Spark analysis but not a full computation job.
+
+    Args:
+        df_id: DataFrame handle
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "df_id": df_id})
+    try:
+        return json.dumps(df.schema.jsonValue())
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "df_id": df_id})
+
+
+@mcp.tool()
+def describe(df_id: str, columns: list[str] | None = None) -> str:
+    """Return summary statistics (count, mean, stddev, min, max) as JSON rows.
+
+    Triggers a Spark job. Computes statistics for numeric and string columns.
+
+    Args:
+        df_id: DataFrame handle
+        columns: Optional list of column names to describe. Describes all columns if omitted.
+    """
+    try:
+        df = df_mod.registry.get(df_id)
+    except KeyError as e:
+        return json.dumps({"error": str(e), "df_id": df_id})
+    try:
+        desc_df = df.describe(*columns) if columns else df.describe()
+        rows = desc_df.collect()
+        return json.dumps([row.asDict() for row in rows])
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": str(e), "df_id": df_id})
