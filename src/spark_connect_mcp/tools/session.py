@@ -6,31 +6,33 @@ import json
 
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp import session as session_mod
-from spark_connect_mcp.connectors import get_connector
+from spark_connect_mcp.connectors import detect_connection_type, get_connector
 from spark_connect_mcp.server import mcp
 
 
 @mcp.tool()
 def start_session(
-    connection_type: str = "databricks",
     url: str | None = None,
     profile: str | None = None,
     serverless: bool = True,
 ) -> str:
     """Start a Spark session and return a session_id handle.
 
-    Defaults to a Databricks serverless session — call with no arguments for the
-    common case (Databricks Apps, Jobs, or notebooks on serverless compute).
+    The connection type (databricks or spark_connect) is detected automatically
+    from the installed package — no need to specify it.
 
-    For OSS Spark Connect, pass connection_type='spark_connect' and url.
-    For a Databricks classic cluster, pass serverless=False and profile.
+    Call with no arguments for the common case: Databricks serverless compute
+    (Databricks Apps, Jobs, or notebooks).
+
+    For a Databricks classic cluster, pass serverless=False and optionally profile.
+    For OSS Spark Connect, pass url (e.g. 'sc://localhost:15002').
 
     Args:
-        connection_type: 'databricks' (default) or 'spark_connect'
-        url: Spark Connect URL (e.g. 'sc://localhost:15002') — spark_connect only
+        url: Spark Connect URL — spark_connect installs only
         profile: Databricks CLI profile name — databricks non-serverless only
-        serverless: Use serverless compute (default True). Set False for classic clusters.
+        serverless: Use Databricks serverless compute (default True).
     """
+    connection_type = detect_connection_type()
     config = {
         "connection_type": connection_type,
         "url": url,
