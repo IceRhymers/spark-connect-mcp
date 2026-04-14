@@ -9,6 +9,7 @@ import spark_connect_mcp.tools.catalog  # noqa: F401, E402
 import spark_connect_mcp.tools.exec  # noqa: F401, E402
 import spark_connect_mcp.tools.lazy  # noqa: F401, E402
 import spark_connect_mcp.tools.session  # noqa: F401, E402
+import spark_connect_mcp.tools.write  # noqa: F401, E402
 
 
 def main() -> None:
