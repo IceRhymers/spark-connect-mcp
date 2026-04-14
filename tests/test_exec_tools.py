@@ -178,7 +178,11 @@ def test_describe_all_columns(mock_df):
     mock_frame = MagicMock()
     mock_df.registry.get.return_value = mock_frame
     stat_row = MagicMock()
-    stat_row.asDict.return_value = {"summary": "count", "age": "100", "salary": "75000.0"}
+    stat_row.asDict.return_value = {
+        "summary": "count",
+        "age": "100",
+        "salary": "75000.0",
+    }
     mock_frame.describe.return_value.collect.return_value = [stat_row]
 
     result = json.loads(describe("df-1"))
@@ -215,7 +219,9 @@ def test_describe_invalid_df_id(mock_df):
 def test_describe_spark_error(mock_df):
     mock_frame = MagicMock()
     mock_df.registry.get.return_value = mock_frame
-    mock_frame.describe.return_value.collect.side_effect = RuntimeError("describe failed")
+    mock_frame.describe.return_value.collect.side_effect = RuntimeError(
+        "describe failed"
+    )
 
     result = json.loads(describe("df-1", columns=["revenue"]))
 
