@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from spark_connect_mcp.connectors.base import BaseConnector
@@ -21,29 +22,26 @@ class DatabricksConnector(BaseConnector):
     """Connect via Databricks Connect. Requires spark-connect-mcp[databricks].
 
     Two connection modes:
-    - profile (default): DatabricksSession.builder.profile(profile).getOrCreate()
-      Use for classic clusters and local dev with a ~/.databrickscfg profile.
+    - classic cluster: DatabricksSession.builder.profile(profile).getOrCreate()
+      Profile is read from DATABRICKS_CONFIG_PROFILE env var (defaults to DEFAULT).
     - serverless: DatabricksSession.builder.serverless().getOrCreate()
       Use inside Databricks Apps, Jobs, or notebooks running on serverless compute.
     """
 
-    def __init__(self, profile: str | None = "DEFAULT", serverless: bool = False):
+    def __init__(self, serverless: bool = False):
         if not _DATABRICKS_AVAILABLE:
             raise ImportError(
                 "Install spark-connect-mcp[databricks] for Databricks Connect support"
             )
-        self._profile = profile
         self._serverless = serverless
         self._last_serverless = False
 
     def connect(self, config: dict) -> SparkSession:
-        profile = config.get("profile", self._profile)
         serverless = config.get("serverless", self._serverless)
         self._last_serverless = serverless
         if serverless:
             return DatabricksSession.builder.serverless().getOrCreate()
-        if profile is None:
-            profile = "DEFAULT"
+        profile = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
         return DatabricksSession.builder.profile(profile).getOrCreate()
 
     def disconnect(self, session: SparkSession) -> None:
