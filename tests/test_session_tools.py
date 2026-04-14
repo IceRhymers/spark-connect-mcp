@@ -27,6 +27,10 @@ def _make_session_info(
 
 def test_start_session_spark_connect():
     with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="spark_connect",
+        ),
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
@@ -34,28 +38,40 @@ def test_start_session_spark_connect():
         mock_sreg.registry.start.return_value = "abc-123"
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("spark_connect", url="sc://localhost:15002"))
+        result = json.loads(start_session(url="sc://localhost:15002"))
         assert result["session_id"] == "abc-123"
         assert result["connection_type"] == "spark_connect"
         assert "message" in result
 
 
 def test_start_session_unknown_type():
-    with patch("spark_connect_mcp.tools.session.get_connector") as mock_gc:
+    with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="bad",
+        ),
+        patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
+    ):
         mock_gc.side_effect = ValueError("Unknown connection_type: bad")
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("bad"))
+        result = json.loads(start_session())
         assert "error" in result
         assert "supported_types" in result
 
 
 def test_start_session_databricks_not_installed():
-    with patch("spark_connect_mcp.tools.session.get_connector") as mock_gc:
+    with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="databricks",
+        ),
+        patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
+    ):
         mock_gc.side_effect = ImportError("Install spark-connect-mcp[databricks]")
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("databricks"))
+        result = json.loads(start_session())
         assert "error" in result
         assert "hint" in result
         assert "databricks" in result["hint"]
@@ -63,6 +79,10 @@ def test_start_session_databricks_not_installed():
 
 def test_start_session_connector_error():
     with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="spark_connect",
+        ),
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
@@ -70,13 +90,17 @@ def test_start_session_connector_error():
         mock_sreg.registry.start.side_effect = RuntimeError("connection refused")
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("spark_connect", url="sc://bad"))
+        result = json.loads(start_session(url="sc://bad"))
         assert "error" in result
 
 
 def test_start_session_serverless_success():
     """Serverless path: DatabricksSession.builder.serverless() is used, url_or_profile=serverless."""
     with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="databricks",
+        ),
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
@@ -84,7 +108,7 @@ def test_start_session_serverless_success():
         mock_sreg.registry.start.return_value = "srv-uuid"
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("databricks", serverless=True))
+        result = json.loads(start_session(serverless=True))
         assert result["session_id"] == "srv-uuid"
         assert "serverless" in result["message"]
         # Verify config passed to registry includes serverless=True
@@ -96,6 +120,10 @@ def test_start_session_serverless_success():
 def test_start_session_serverless_no_active_session():
     """Serverless path: RuntimeError when no active Databricks session exists."""
     with (
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="databricks",
+        ),
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
@@ -106,7 +134,7 @@ def test_start_session_serverless_no_active_session():
         )
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session("databricks", serverless=True))
+        result = json.loads(start_session(serverless=True))
         assert "error" in result
         assert "serverless" in result["error"].lower()
 
