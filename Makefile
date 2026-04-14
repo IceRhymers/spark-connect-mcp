@@ -22,3 +22,6 @@ check: lint fmt-check typecheck
 
 build:
 	uv build
+
+clean:
+	rm -rf build/ dist/ .mypy_cache/ .ruff_cache/ .pytest_cache/ .coverage .venv/

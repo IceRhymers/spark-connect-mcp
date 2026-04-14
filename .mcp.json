@@ -2,7 +2,7 @@
   "mcpServers": {
     "spark": {
       "command": "uv",
-      "args": ["run", "--extra", "databricks", "spark-connect-mcp"]
+      "args": ["run", "--extra", "databricks", "databricks-connect-mcp"]
     }
   }
 }
