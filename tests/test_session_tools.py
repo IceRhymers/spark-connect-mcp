@@ -38,7 +38,7 @@ def test_start_session_spark_connect():
         mock_sreg.registry.start.return_value = "abc-123"
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session(url="sc://localhost:15002"))
+        result = json.loads(start_session())
         assert result["session_id"] == "abc-123"
         assert result["connection_type"] == "spark_connect"
         assert "message" in result
@@ -90,7 +90,7 @@ def test_start_session_connector_error():
         mock_sreg.registry.start.side_effect = RuntimeError("connection refused")
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session(url="sc://bad"))
+        result = json.loads(start_session())
         assert "error" in result
 
 

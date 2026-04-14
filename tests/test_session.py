@@ -1,7 +1,8 @@
 """Tests for SessionRegistry."""
 
+import os
 from datetime import UTC
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,9 +28,8 @@ def test_start_returns_uuid():
 def test_start_stores_session_info():
     reg = SessionRegistry()
     connector = _make_connector()
-    sid = reg.start(
-        connector, {"url": "sc://host:15002", "connection_type": "spark_connect"}
-    )
+    with patch.dict(os.environ, {"SPARK_REMOTE": "sc://host:15002"}):
+        sid = reg.start(connector, {"connection_type": "spark_connect"})
     sessions = reg.list()
     assert len(sessions) == 1
     info = sessions[0]

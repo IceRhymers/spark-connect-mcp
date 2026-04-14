@@ -48,8 +48,9 @@ class SessionRegistry:
             url_or_profile="serverless"
             if config.get("serverless")
             else (
-                config.get("url")
-                or os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+                os.environ.get("SPARK_REMOTE", "")
+                if config.get("connection_type") == "spark_connect"
+                else os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
             ),
         )
         with self._lock:
