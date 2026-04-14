@@ -5,7 +5,14 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from spark_connect_mcp.tools.exec import MAX_COLLECT_LIMIT, collect, count, describe, schema, show
+from spark_connect_mcp.tools.exec import (
+    MAX_COLLECT_LIMIT,
+    collect,
+    count,
+    describe,
+    schema,
+    show,
+)
 
 # ── show ─────────────────────────────────────────────────────────────────────
 
