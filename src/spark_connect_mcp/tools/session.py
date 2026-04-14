@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 
 from spark_connect_mcp import dataframes as df_mod
-from spark_connect_mcp import server as server_mod
 from spark_connect_mcp import session as session_mod
 from spark_connect_mcp.connectors import detect_connection_type, get_connector
 from spark_connect_mcp.server import mcp
@@ -15,17 +15,21 @@ from spark_connect_mcp.server import mcp
 def start_session() -> str:
     """Start a Spark session and return a session_id handle.
 
-    The connection type is detected automatically from the installed package:
+    The connection type is determined by which entrypoint launched the server.
+    Each entrypoint requires its matching optional extra to be installed:
 
-    - spark-connect-mcp[databricks]: Connects via Databricks Connect serverless.
-      Auth is read from DATABRICKS_CONFIG_PROFILE (defaults to DEFAULT) or
-      standard Databricks env vars (DATABRICKS_HOST, DATABRICKS_TOKEN, etc.).
-    - spark-connect-mcp[spark]: Connects via OSS Spark Connect.
+    - databricks-connect-mcp (extra: databricks): Connects via Databricks
+      Connect serverless. Auth is read from DATABRICKS_CONFIG_PROFILE
+      (defaults to DEFAULT) or standard Databricks env vars
+      (DATABRICKS_HOST, DATABRICKS_TOKEN, etc.).
+    - spark-connect-mcp (extra: spark): Connects via OSS Spark Connect.
       Requires SPARK_REMOTE (e.g. sc://localhost:15002).
 
     No arguments needed — just call start_session().
     """
-    connection_type = server_mod.connection_type_override or detect_connection_type()
+    connection_type = (
+        os.environ.get("SPARK_CONNECT_MCP_TYPE") or detect_connection_type()
+    )
     config = {
         "connection_type": connection_type,
     }

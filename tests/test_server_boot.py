@@ -27,10 +27,3 @@ def test_main_is_callable():
     from spark_connect_mcp.server import main
 
     assert callable(main)
-
-
-def test_connection_type_override_defaults_to_none():
-    """connection_type_override is None until an entrypoint sets it."""
-    from spark_connect_mcp.server import connection_type_override
-
-    assert connection_type_override is None

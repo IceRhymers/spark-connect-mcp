@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC
 from unittest.mock import MagicMock, patch
 
@@ -133,15 +134,14 @@ def test_start_session_databricks_runtime_error():
         assert "error" in result
 
 
-def test_start_session_uses_override():
-    """When connection_type_override is set, detect_connection_type is NOT called."""
+def test_start_session_uses_env_override():
+    """When SPARK_CONNECT_MCP_TYPE is set, detect_connection_type is NOT called."""
     with (
-        patch("spark_connect_mcp.tools.session.server_mod") as mock_server,
+        patch.dict(os.environ, {"SPARK_CONNECT_MCP_TYPE": "databricks"}),
         patch("spark_connect_mcp.tools.session.detect_connection_type") as mock_detect,
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
-        mock_server.connection_type_override = "databricks"
         mock_gc.return_value = MagicMock()
         mock_sreg.registry.start.return_value = "override-uuid"
         from spark_connect_mcp.tools.session import start_session
@@ -151,10 +151,12 @@ def test_start_session_uses_override():
         mock_detect.assert_not_called()
 
 
-def test_start_session_override_none_falls_through():
-    """When connection_type_override is None, detect_connection_type is called."""
+def test_start_session_no_env_falls_through():
+    """When SPARK_CONNECT_MCP_TYPE is unset, detect_connection_type is called."""
+    env = os.environ.copy()
+    env.pop("SPARK_CONNECT_MCP_TYPE", None)
     with (
-        patch("spark_connect_mcp.tools.session.server_mod") as mock_server,
+        patch.dict(os.environ, env, clear=True),
         patch(
             "spark_connect_mcp.tools.session.detect_connection_type",
             return_value="spark_connect",
@@ -162,7 +164,6 @@ def test_start_session_override_none_falls_through():
         patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
         patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
     ):
-        mock_server.connection_type_override = None
         mock_gc.return_value = MagicMock()
         mock_sreg.registry.start.return_value = "fallback-uuid"
         from spark_connect_mcp.tools.session import start_session
