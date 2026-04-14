@@ -12,18 +12,24 @@ from spark_connect_mcp.server import mcp
 
 @mcp.tool()
 def start_session(
-    connection_type: str,
+    connection_type: str = "databricks",
     url: str | None = None,
     profile: str | None = None,
-    serverless: bool = False,
+    serverless: bool = True,
 ) -> str:
     """Start a Spark session and return a session_id handle.
 
+    Defaults to a Databricks serverless session — call with no arguments for the
+    common case (Databricks Apps, Jobs, or notebooks on serverless compute).
+
+    For OSS Spark Connect, pass connection_type='spark_connect' and url.
+    For a Databricks classic cluster, pass serverless=False and profile.
+
     Args:
-        connection_type: 'spark_connect' or 'databricks'
-        url: Spark Connect URL (e.g. 'sc://localhost:15002') for spark_connect
-        profile: Databricks CLI profile name for databricks connections
-        serverless: If True, use DatabricksSession.builder.serverless() (Databricks Apps/notebooks)
+        connection_type: 'databricks' (default) or 'spark_connect'
+        url: Spark Connect URL (e.g. 'sc://localhost:15002') — spark_connect only
+        profile: Databricks CLI profile name — databricks non-serverless only
+        serverless: Use serverless compute (default True). Set False for classic clusters.
     """
     config = {
         "connection_type": connection_type,
