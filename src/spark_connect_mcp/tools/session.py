@@ -12,29 +12,28 @@ from spark_connect_mcp.server import mcp
 
 @mcp.tool()
 def start_session(
-    url: str | None = None,
     serverless: bool = True,
 ) -> str:
     """Start a Spark session and return a session_id handle.
 
     The connection type (databricks or spark_connect) is detected automatically
-    from the installed package — no need to specify it.
+    from the installed package — no need to specify it. All connection config
+    is read from environment variables set at server deploy time.
 
     Call with no arguments for the common case: Databricks serverless compute
     (Databricks Apps, Jobs, or notebooks).
 
-    For a Databricks classic cluster, pass serverless=False. The Databricks CLI
-    profile is read from the DATABRICKS_CONFIG_PROFILE env var (defaults to DEFAULT).
-    For OSS Spark Connect, pass url (e.g. 'sc://localhost:15002').
+    For a Databricks classic cluster, pass serverless=False. The CLI profile
+    is read from DATABRICKS_CONFIG_PROFILE (defaults to DEFAULT).
+    For OSS Spark Connect, set SPARK_REMOTE=sc://localhost:15002 before starting
+    the server.
 
     Args:
-        url: Spark Connect URL — spark_connect installs only
         serverless: Use Databricks serverless compute (default True).
     """
     connection_type = detect_connection_type()
     config = {
         "connection_type": connection_type,
-        "url": url,
         "serverless": serverless,
     }
     try:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from spark_connect_mcp.connectors.base import BaseConnector
 
 try:
@@ -20,7 +22,13 @@ class SparkConnector(BaseConnector):
             raise ImportError(
                 "Install spark-connect-mcp[spark] for OSS Spark Connect support"
             )
-        url = config.get("url", "sc://localhost:15002")
+        url = os.environ.get("SPARK_REMOTE")
+        if not url:
+            raise RuntimeError(
+                "SPARK_REMOTE is not set. "
+                "Set it to your Spark Connect URL before starting the server "
+                "(e.g. SPARK_REMOTE=sc://localhost:15002)."
+            )
         return SparkSession.builder.remote(url).getOrCreate()
 
     def disconnect(self, session: SparkSession) -> None:

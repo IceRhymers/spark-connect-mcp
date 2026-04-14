@@ -1,5 +1,6 @@
 """Unit tests for connectors."""
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,9 +29,10 @@ def test_spark_connector_connect():
     with (
         patch.object(spark_mod, "_PYSPARK_AVAILABLE", True),
         patch.object(spark_mod, "SparkSession", mock_spark_session, create=True),
+        patch.dict(os.environ, {"SPARK_REMOTE": "sc://localhost:15002"}),
     ):
         connector = SparkConnector()
-        session = connector.connect({"url": "sc://localhost:15002"})
+        session = connector.connect({})
         assert session is mock_session
         mock_spark_session.builder.remote.assert_called_once_with(
             "sc://localhost:15002"
