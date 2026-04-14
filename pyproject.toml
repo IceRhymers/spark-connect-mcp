@@ -27,6 +27,7 @@ databricks = [
 
 [project.scripts]
 spark-connect-mcp = "spark_connect_mcp.server:main"
+databricks-connect-mcp = "spark_connect_mcp.entrypoints:databricks_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spark_connect_mcp"]

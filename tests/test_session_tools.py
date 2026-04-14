@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC
 from unittest.mock import MagicMock, patch
 
@@ -94,8 +95,8 @@ def test_start_session_connector_error():
         assert "error" in result
 
 
-def test_start_session_serverless_success():
-    """Serverless path: DatabricksSession.builder.serverless() is used, url_or_profile=serverless."""
+def test_start_session_databricks_success():
+    """Databricks path: connects via serverless, no extra args needed."""
     with (
         patch(
             "spark_connect_mcp.tools.session.detect_connection_type",
@@ -108,17 +109,13 @@ def test_start_session_serverless_success():
         mock_sreg.registry.start.return_value = "srv-uuid"
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session(serverless=True))
+        result = json.loads(start_session())
         assert result["session_id"] == "srv-uuid"
-        assert "serverless" in result["message"]
-        # Verify config passed to registry includes serverless=True
-        call_args = mock_sreg.registry.start.call_args
-        config = call_args[0][1]  # second positional arg
-        assert config["serverless"] is True
+        assert result["connection_type"] == "databricks"
 
 
-def test_start_session_serverless_no_active_session():
-    """Serverless path: RuntimeError when no active Databricks session exists."""
+def test_start_session_databricks_runtime_error():
+    """Databricks path: RuntimeError surfaces cleanly."""
     with (
         patch(
             "spark_connect_mcp.tools.session.detect_connection_type",
@@ -129,14 +126,51 @@ def test_start_session_serverless_no_active_session():
     ):
         mock_gc.return_value = MagicMock()
         mock_sreg.registry.start.side_effect = RuntimeError(
-            "Failed to create serverless Databricks session. "
-            "serverless=True is only valid inside Databricks Apps or notebooks."
+            "Failed to create Databricks session."
         )
         from spark_connect_mcp.tools.session import start_session
 
-        result = json.loads(start_session(serverless=True))
+        result = json.loads(start_session())
         assert "error" in result
-        assert "serverless" in result["error"].lower()
+
+
+def test_start_session_uses_env_override():
+    """When SPARK_CONNECT_MCP_TYPE is set, detect_connection_type is NOT called."""
+    with (
+        patch.dict(os.environ, {"SPARK_CONNECT_MCP_TYPE": "databricks"}),
+        patch("spark_connect_mcp.tools.session.detect_connection_type") as mock_detect,
+        patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
+        patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
+    ):
+        mock_gc.return_value = MagicMock()
+        mock_sreg.registry.start.return_value = "override-uuid"
+        from spark_connect_mcp.tools.session import start_session
+
+        result = json.loads(start_session())
+        assert result["connection_type"] == "databricks"
+        mock_detect.assert_not_called()
+
+
+def test_start_session_no_env_falls_through():
+    """When SPARK_CONNECT_MCP_TYPE is unset, detect_connection_type is called."""
+    env = os.environ.copy()
+    env.pop("SPARK_CONNECT_MCP_TYPE", None)
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch(
+            "spark_connect_mcp.tools.session.detect_connection_type",
+            return_value="spark_connect",
+        ) as mock_detect,
+        patch("spark_connect_mcp.tools.session.get_connector") as mock_gc,
+        patch("spark_connect_mcp.tools.session.session_mod") as mock_sreg,
+    ):
+        mock_gc.return_value = MagicMock()
+        mock_sreg.registry.start.return_value = "fallback-uuid"
+        from spark_connect_mcp.tools.session import start_session
+
+        result = json.loads(start_session())
+        assert result["connection_type"] == "spark_connect"
+        mock_detect.assert_called_once()
 
 
 def test_close_session_success():

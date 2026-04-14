@@ -41,17 +41,16 @@ class SessionRegistry:
         """Create a new session and return its session_id."""
         session_id = str(uuid.uuid4())
         spark = connector.connect(config)
+        connection_type = config.get("connection_type", "spark_connect")
+        if connection_type == "databricks":
+            url_or_profile = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+        else:
+            url_or_profile = os.environ.get("SPARK_REMOTE", "")
         info = SessionInfo(
             session_id=session_id,
-            connection_type=config.get("connection_type", "spark_connect"),
+            connection_type=connection_type,
             created_at=datetime.now(UTC),
-            url_or_profile="serverless"
-            if config.get("serverless")
-            else (
-                os.environ.get("SPARK_REMOTE", "")
-                if config.get("connection_type") == "spark_connect"
-                else os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
-            ),
+            url_or_profile=url_or_profile,
         )
         with self._lock:
             self._sessions[session_id] = _SessionEntry(
