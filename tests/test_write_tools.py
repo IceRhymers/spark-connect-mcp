@@ -14,12 +14,11 @@ from spark_connect_mcp.tools.write import save, save_as_table
 def test_save_success(mock_df: MagicMock) -> None:
     mock_frame = MagicMock()
     mock_df.registry.get.return_value = mock_frame
-    mock_frame.write.format.return_value.mode.return_value.save = MagicMock()
 
     result = json.loads(save("df-1", "/tmp/out"))
 
     assert result == {"status": "ok", "path": "/tmp/out", "df_id": "df-1"}
-    mock_frame.write.format.assert_called_once_with("parquet")
+    mock_frame.write.format.assert_called_once_with("delta")
     mock_frame.write.format.return_value.mode.assert_called_once_with("error")
     mock_frame.write.format.return_value.mode.return_value.save.assert_called_once_with(
         "/tmp/out"
@@ -86,6 +85,30 @@ def test_save_partition_by(mock_df: MagicMock) -> None:
     writer.save.assert_called_once_with("/tmp/out")
 
 
+@patch("spark_connect_mcp.tools.write.df_mod")
+def test_save_cluster_by(mock_df: MagicMock) -> None:
+    mock_frame = MagicMock()
+    mock_df.registry.get.return_value = mock_frame
+    writer = mock_frame.write.format.return_value.mode.return_value
+    writer.clusterBy.return_value = writer
+
+    result = json.loads(save("df-1", "/tmp/out", cluster_by=["event_date", "region"]))
+
+    assert result["status"] == "ok"
+    writer.clusterBy.assert_called_once_with("event_date", "region")
+    writer.save.assert_called_once_with("/tmp/out")
+
+
+def test_save_partition_and_cluster_mutually_exclusive() -> None:
+    result = json.loads(
+        save("df-1", "/tmp/out", partition_by=["year"], cluster_by=["event_date"])
+    )
+
+    assert "error" in result
+    assert "mutually exclusive" in result["error"]
+    assert result["df_id"] == "df-1"
+
+
 # ── save_as_table ─────────────────────────────────────────────────────────────
 
 
@@ -148,25 +171,23 @@ def test_save_as_table_uc_name(mock_df: MagicMock) -> None:
 
 
 @patch("spark_connect_mcp.tools.write.df_mod")
-def test_save_cluster_by(mock_df: MagicMock) -> None:
-    """cluster_by calls .clusterBy() on the writer before .save()."""
+def test_save_as_table_partition_by(mock_df: MagicMock) -> None:
     mock_frame = MagicMock()
     mock_df.registry.get.return_value = mock_frame
     writer = mock_frame.write.format.return_value.mode.return_value
-    writer.clusterBy.return_value = writer
+    writer.partitionBy.return_value = writer
 
     result = json.loads(
-        save("df-1", "/tmp/out", format="delta", cluster_by=["event_date", "region"])
+        save_as_table("df-1", "main.default.events", partition_by=["year", "month"])
     )
 
     assert result["status"] == "ok"
-    writer.clusterBy.assert_called_once_with("event_date", "region")
-    writer.save.assert_called_once_with("/tmp/out")
+    writer.partitionBy.assert_called_once_with("year", "month")
+    writer.saveAsTable.assert_called_once_with("main.default.events")
 
 
 @patch("spark_connect_mcp.tools.write.df_mod")
 def test_save_as_table_cluster_by(mock_df: MagicMock) -> None:
-    """cluster_by calls .clusterBy() on the writer before .saveAsTable()."""
     mock_frame = MagicMock()
     mock_df.registry.get.return_value = mock_frame
     writer = mock_frame.write.format.return_value.mode.return_value
@@ -183,3 +204,18 @@ def test_save_as_table_cluster_by(mock_df: MagicMock) -> None:
     assert result == {"status": "ok", "table": "main.default.events", "df_id": "df-1"}
     writer.clusterBy.assert_called_once_with("event_date", "user_id")
     writer.saveAsTable.assert_called_once_with("main.default.events")
+
+
+def test_save_as_table_partition_and_cluster_mutually_exclusive() -> None:
+    result = json.loads(
+        save_as_table(
+            "df-1",
+            "main.default.events",
+            partition_by=["year"],
+            cluster_by=["event_date"],
+        )
+    )
+
+    assert "error" in result
+    assert "mutually exclusive" in result["error"]
+    assert result["df_id"] == "df-1"

@@ -12,33 +12,43 @@ from spark_connect_mcp.server import mcp
 def save(  # noqa: A001
     df_id: str,
     path: str,
-    format: str = "parquet",  # noqa: A002
+    format: str = "delta",  # noqa: A002
     mode: str = "error",
     partition_by: list[str] | None = None,
     cluster_by: list[str] | None = None,
 ) -> str:
     """Write a DataFrame to a file path, triggering a Spark job.
 
-    Supported formats: parquet (default), delta, csv, json, orc.
+    Supported formats: delta (default), parquet, csv, json, orc, avro.
     Supported modes: error (default), overwrite, append, ignore.
     WARNING: overwrite mode is destructive — it replaces all existing data at path.
 
-    cluster_by enables Delta Lake liquid clustering (requires Spark 4.0+ or
-    Databricks Runtime 14.2+). Liquid clustering and partition_by are mutually
-    exclusive — use one or the other, not both.
+    partition_by and cluster_by are mutually exclusive. Use partition_by for
+    Hive-style partitioning (all formats). Use cluster_by for Delta liquid
+    clustering (requires Spark 4.0+ or Databricks Runtime 14.2+; delta format
+    only). Providing both returns an error.
 
     Args:
         df_id: DataFrame handle from a lazy tool.
         path: Destination path (local, DBFS, S3, ADLS, GCS, etc.).
-        format: Output file format. Defaults to "parquet".
-        mode: Write mode. Defaults to "error" (fail if path exists).
-        partition_by: Optional list of column names to partition the output by.
-        cluster_by: Optional list of column names for Delta liquid clustering.
+        format: Output file format. Defaults to "delta".
+        mode: Write mode. One of: error, overwrite, append, ignore.
+        partition_by: Column names for Hive-style partitioning.
+        cluster_by: Column names for Delta liquid clustering.
             Requires Spark 4.0+ or Databricks Runtime 14.2+.
 
     Returns:
         JSON with status "ok" and path on success, or error details on failure.
     """
+    if partition_by and cluster_by:
+        return json.dumps(
+            {
+                "error": "partition_by and cluster_by are mutually exclusive. "
+                "Use partition_by for Hive-style partitioning or cluster_by "
+                "for Delta liquid clustering, not both.",
+                "df_id": df_id,
+            }
+        )
     try:
         df = df_mod.registry.get(df_id)
     except KeyError as e:
@@ -61,37 +71,51 @@ def save_as_table(
     table_name: str,
     format: str = "delta",  # noqa: A002
     mode: str = "error",
+    partition_by: list[str] | None = None,
     cluster_by: list[str] | None = None,
 ) -> str:
     """Write a DataFrame to a managed or external table, triggering a Spark job.
 
     Supports Unity Catalog three-part names (catalog.schema.table).
-    Supported formats: delta (default), parquet, csv, json, orc.
+    Supported formats: delta (default), parquet, csv, json, orc, avro.
     Supported modes: error (default), overwrite, append, ignore.
     WARNING: overwrite mode is destructive — it replaces all existing table data.
 
-    cluster_by enables Delta Lake liquid clustering, which is the recommended
-    alternative to partition_by for Delta tables. Requires Spark 4.0+ or
-    Databricks Runtime 14.2+. Clustering keys can only be set on table creation
-    or when using overwrite mode.
+    partition_by and cluster_by are mutually exclusive. Use partition_by for
+    Hive-style partitioning (compatible with all formats). Use cluster_by for
+    Delta liquid clustering (requires Spark 4.0+ or Databricks Runtime 14.2+;
+    delta format only; keys can only be set on creation or overwrite mode).
+    Providing both returns an error.
 
     Args:
         df_id: DataFrame handle from a lazy tool.
         table_name: Target table name. Supports catalog.schema.table format.
         format: Output file format. Defaults to "delta".
-        mode: Write mode. Defaults to "error" (fail if table exists).
-        cluster_by: Optional list of column names for Delta liquid clustering.
+        mode: Write mode. One of: error, overwrite, append, ignore.
+        partition_by: Column names for Hive-style partitioning.
+        cluster_by: Column names for Delta liquid clustering.
             Requires Spark 4.0+ or Databricks Runtime 14.2+.
 
     Returns:
         JSON with status "ok" and table name on success, or error details on failure.
     """
+    if partition_by and cluster_by:
+        return json.dumps(
+            {
+                "error": "partition_by and cluster_by are mutually exclusive. "
+                "Use partition_by for Hive-style partitioning or cluster_by "
+                "for Delta liquid clustering, not both.",
+                "df_id": df_id,
+            }
+        )
     try:
         df = df_mod.registry.get(df_id)
     except KeyError as e:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         writer = df.write.format(format).mode(mode)
+        if partition_by:
+            writer = writer.partitionBy(*partition_by)
         if cluster_by:
             writer = writer.clusterBy(*cluster_by)
         writer.saveAsTable(table_name)
