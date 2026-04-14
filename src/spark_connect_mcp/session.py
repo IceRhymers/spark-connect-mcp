@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import uuid
 from dataclasses import dataclass
@@ -46,7 +47,10 @@ class SessionRegistry:
             created_at=datetime.now(UTC),
             url_or_profile="serverless"
             if config.get("serverless")
-            else (config.get("url") or config.get("profile") or ""),
+            else (
+                config.get("url")
+                or os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+            ),
         )
         with self._lock:
             self._sessions[session_id] = _SessionEntry(
