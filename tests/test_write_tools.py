@@ -145,3 +145,41 @@ def test_save_as_table_uc_name(mock_df: MagicMock) -> None:
     mock_frame.write.format.return_value.mode.return_value.saveAsTable.assert_called_once_with(
         "prod_catalog.analytics.fact_sales"
     )
+
+
+@patch("spark_connect_mcp.tools.write.df_mod")
+def test_save_cluster_by(mock_df: MagicMock) -> None:
+    """cluster_by calls .clusterBy() on the writer before .save()."""
+    mock_frame = MagicMock()
+    mock_df.registry.get.return_value = mock_frame
+    writer = mock_frame.write.format.return_value.mode.return_value
+    writer.clusterBy.return_value = writer
+
+    result = json.loads(
+        save("df-1", "/tmp/out", format="delta", cluster_by=["event_date", "region"])
+    )
+
+    assert result["status"] == "ok"
+    writer.clusterBy.assert_called_once_with("event_date", "region")
+    writer.save.assert_called_once_with("/tmp/out")
+
+
+@patch("spark_connect_mcp.tools.write.df_mod")
+def test_save_as_table_cluster_by(mock_df: MagicMock) -> None:
+    """cluster_by calls .clusterBy() on the writer before .saveAsTable()."""
+    mock_frame = MagicMock()
+    mock_df.registry.get.return_value = mock_frame
+    writer = mock_frame.write.format.return_value.mode.return_value
+    writer.clusterBy.return_value = writer
+
+    result = json.loads(
+        save_as_table(
+            "df-1",
+            "main.default.events",
+            cluster_by=["event_date", "user_id"],
+        )
+    )
+
+    assert result == {"status": "ok", "table": "main.default.events", "df_id": "df-1"}
+    writer.clusterBy.assert_called_once_with("event_date", "user_id")
+    writer.saveAsTable.assert_called_once_with("main.default.events")
