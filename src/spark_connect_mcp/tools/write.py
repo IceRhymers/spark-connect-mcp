@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp.preflight import estimate_size
 from spark_connect_mcp.server import mcp
 
 
-def _run_preflight(df, force: bool) -> str | None:
+def _run_preflight(df: Any, force: bool) -> str | None:
     """Run preflight size check. Returns warning JSON string if blocked, else None."""
     if force:
         return None

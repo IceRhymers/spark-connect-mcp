@@ -7,6 +7,7 @@ import re
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
+from typing import Any
 
 
 @dataclass
@@ -95,7 +96,7 @@ def _get_thresholds(session_id: str | None) -> tuple[int, int, bool]:
     return max_bytes, max_rows, True
 
 
-def estimate_size(df, session_id: str | None = None) -> PreflightResult | None:  # noqa: C901
+def estimate_size(df: Any, session_id: str | None = None) -> PreflightResult | None:  # noqa: C901
     """Estimate DataFrame size from Spark CBO statistics.
 
     Returns a PreflightResult if the estimated size exceeds thresholds,
