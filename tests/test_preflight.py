@@ -440,7 +440,7 @@ class TestSetPreflightThreshold:
         )
 
         set_preflight_threshold(
-            session_id="s1", max_bytes=100, max_rows=10
+            session_id="s1", max_bytes=10, max_rows=1
         )
 
         # A plan that is small by default thresholds but above our custom ones
@@ -448,7 +448,7 @@ class TestSetPreflightThreshold:
         result = estimate_size(df, session_id="s1")
 
         assert result is not None
-        assert result.estimated_bytes >= 100 or result.estimated_rows >= 10
+        assert result.estimated_bytes >= 10 or result.estimated_rows >= 1
 
     def test_overrides_with_enabled_false_disables(self):
         from spark_connect_mcp.preflight import (

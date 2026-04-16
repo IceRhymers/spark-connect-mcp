@@ -5,8 +5,20 @@ from __future__ import annotations
 import json
 
 from spark_connect_mcp import dataframes as df_mod
+from spark_connect_mcp.preflight import estimate_size
 from spark_connect_mcp.server import mcp
-from spark_connect_mcp.tools.exec import _run_preflight
+
+
+def _run_preflight(df, force: bool) -> str | None:
+    """Run preflight size check. Returns warning JSON string if blocked, else None."""
+    if force:
+        return None
+    result = estimate_size(df)
+    if result is None:
+        return None
+    if result.should_block:
+        return json.dumps({"warning": result.warning, "preflight": result.confidence})
+    return None
 
 
 @mcp.tool()

@@ -7,6 +7,7 @@ import json
 from contextlib import redirect_stdout
 
 from spark_connect_mcp import dataframes as df_mod
+from spark_connect_mcp.preflight import estimate_size
 from spark_connect_mcp.server import mcp
 
 # Maximum rows collect() will return to prevent agent-triggered OOM.
@@ -17,15 +18,11 @@ def _run_preflight(df, force: bool) -> str | None:
     """Run preflight size check. Returns warning JSON string if blocked, else None."""
     if force:
         return None
-    try:
-        from spark_connect_mcp.preflight import estimate_size
-    except ImportError:
-        return None
     result = estimate_size(df)
     if result is None:
         return None
-    if result.exceeds_threshold:
-        return json.dumps(result.warning_json)
+    if result.should_block:
+        return json.dumps({"warning": result.warning, "preflight": result.confidence})
     return None
 
 
