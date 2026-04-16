@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import json
-import os
-from contextlib import redirect_stdout
 from unittest.mock import MagicMock, patch
 
-import pytest
+from spark_connect_mcp.tools.exec import collect, count, describe, show
 
 # ── Explain output fixtures ─────────────────────────────────────────────────
 
@@ -439,9 +436,7 @@ class TestSetPreflightThreshold:
             set_preflight_threshold,
         )
 
-        set_preflight_threshold(
-            session_id="s1", max_bytes=10, max_rows=1
-        )
+        set_preflight_threshold(session_id="s1", max_bytes=10, max_rows=1)
 
         # A plan that is small by default thresholds but above our custom ones
         df = _mock_df_with_explain(EXPLAIN_SMALL)
@@ -464,7 +459,4 @@ class TestSetPreflightThreshold:
         assert result is None
 
 
-# ── Import the tools with updated signatures for integration tests ───────────
-# We re-import here so the patched versions with `force` param are used.
-
-from spark_connect_mcp.tools.exec import collect, count, describe, show
+# ── Integration tests use the imports from the top of this file ─────────────
