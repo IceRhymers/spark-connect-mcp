@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
 
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp import session as session_mod
@@ -125,9 +124,9 @@ def list_sessions() -> str:
 @mcp.tool()
 def set_preflight_threshold(
     session_id: str,
-    max_bytes: Optional[int] = None,
-    max_rows: Optional[int] = None,
-    enabled: Optional[bool] = None,
+    max_bytes: int | None = None,
+    max_rows: int | None = None,
+    enabled: bool | None = None,
 ) -> str:
     """Override preflight size-check thresholds for this session.
 
@@ -143,6 +142,8 @@ def set_preflight_threshold(
     try:
         from spark_connect_mcp.preflight import (
             _session_overrides,
+        )
+        from spark_connect_mcp.preflight import (
             set_preflight_threshold as _set,
         )
     except ImportError:

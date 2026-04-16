@@ -7,16 +7,15 @@ import re
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
-from typing import Optional
 
 
 @dataclass
 class PreflightResult:
     confidence: str  # "high", "medium", "low", "cross_join"
-    estimated_bytes: Optional[int]
-    estimated_rows: Optional[int]
+    estimated_bytes: int | None
+    estimated_rows: int | None
     should_block: bool
-    warning: Optional[str]
+    warning: str | None
 
 
 # Module-level dict for per-session threshold overrides.
@@ -36,9 +35,7 @@ _DEFAULT_MAX_BYTES = 1_073_741_824  # 1 GB
 _DEFAULT_MAX_ROWS = 10_000_000  # 10M
 
 # Regex for Statistics lines.
-_STATS_RE = re.compile(
-    r"Statistics\(sizeInBytes=([^,)]+)(?:,\s*rowCount=([^,)]+))?\)"
-)
+_STATS_RE = re.compile(r"Statistics\(sizeInBytes=([^,)]+)(?:,\s*rowCount=([^,)]+))?\)")
 
 # Regex to detect join lines (before their Statistics).
 _JOIN_RE = re.compile(r"(Join\s+\w+|CartesianProduct)")
@@ -72,11 +69,15 @@ def _get_thresholds(session_id: str | None) -> tuple[int, int, bool]:
         max_rows = overrides.get("max_rows", None)
         if max_bytes is None:
             max_bytes = int(
-                os.environ.get("SPARK_CONNECT_MCP_PREFLIGHT_MAX_BYTES", _DEFAULT_MAX_BYTES)
+                os.environ.get(
+                    "SPARK_CONNECT_MCP_PREFLIGHT_MAX_BYTES", _DEFAULT_MAX_BYTES
+                )
             )
         if max_rows is None:
             max_rows = int(
-                os.environ.get("SPARK_CONNECT_MCP_PREFLIGHT_MAX_ROWS", _DEFAULT_MAX_ROWS)
+                os.environ.get(
+                    "SPARK_CONNECT_MCP_PREFLIGHT_MAX_ROWS", _DEFAULT_MAX_ROWS
+                )
             )
         return max_bytes, max_rows, True
 
@@ -119,7 +120,11 @@ def estimate_size(df, session_id: str | None = None) -> PreflightResult | None: 
     # Extract the Optimized Logical Plan section
     optimized_section = plan.split("== Optimized Logical Plan ==")[1]
     # If there's another section after, cut it off
-    for marker in ("== Physical Plan ==", "== Parsed Logical Plan ==", "== Analyzed Logical Plan =="):
+    for marker in (
+        "== Physical Plan ==",
+        "== Parsed Logical Plan ==",
+        "== Analyzed Logical Plan ==",
+    ):
         if marker in optimized_section:
             optimized_section = optimized_section.split(marker)[0]
 
