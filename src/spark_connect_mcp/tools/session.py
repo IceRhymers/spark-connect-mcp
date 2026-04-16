@@ -141,16 +141,14 @@ def set_preflight_threshold(
         enabled: Set False to disable preflight for this session.
     """
     try:
-        from spark_connect_mcp.preflight import _session_overrides
+        from spark_connect_mcp.preflight import (
+            _session_overrides,
+            set_preflight_threshold as _set,
+        )
     except ImportError:
         return json.dumps({"error": "preflight module not available"})
-    overrides = _session_overrides.setdefault(session_id, {})
-    if max_bytes is not None:
-        overrides["max_bytes"] = max_bytes
-    if max_rows is not None:
-        overrides["max_rows"] = max_rows
-    if enabled is not None:
-        overrides["enabled"] = enabled
+    _set(session_id=session_id, max_bytes=max_bytes, max_rows=max_rows, enabled=enabled)
+    overrides = _session_overrides.get(session_id, {})
     return json.dumps(
         {"status": "ok", "session_id": session_id, "overrides": overrides}
     )
