@@ -21,7 +21,9 @@ class TestPreflightIntegration:
 
         connection_type = detect_connection_type()
         connector = get_connector(connection_type)
-        session_id = session_mod.registry.start(connector, {"connection_type": connection_type})
+        session_id = session_mod.registry.start(
+            connector, {"connection_type": connection_type}
+        )
         try:
             spark = session_mod.registry.get(session_id)
             df = spark.range(1000)
