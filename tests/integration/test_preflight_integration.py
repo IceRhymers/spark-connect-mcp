@@ -11,10 +11,10 @@ from spark_connect_mcp.preflight import Confidence
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.mark.integration
 @pytest.mark.skipif(
-    os.environ.get("TABLE_NAME") is None,
-    reason="TABLE_NAME is not set"
+    os.environ.get("TABLE_NAME") is None, reason="TABLE_NAME is not set"
 )
 class TestPreflightIntegration:
     """Integration tests using a real Spark session via the project's connector stack."""
@@ -35,7 +35,7 @@ class TestPreflightIntegration:
         )
         logger.info("started session session_id=%s", session_id)
         try:
-            table_name  = os.environ.get("TABLE_NAME")
+            table_name = os.environ.get("TABLE_NAME")
             spark = session_mod.registry.get(session_id)
             logger.info(f"table_name={table_name}")
             df = spark.table(table_name)
