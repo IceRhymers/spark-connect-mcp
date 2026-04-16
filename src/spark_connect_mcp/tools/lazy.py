@@ -12,9 +12,12 @@ except ImportError:
     F = None  # type: ignore[assignment]
     _PYSPARK_AVAILABLE = False
 
+from sqlglot.errors import ParseError
+
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp import session as session_mod
 from spark_connect_mcp.server import mcp
+from spark_connect_mcp.sql_guard import ReadOnlyViolation, validate_read_only
 
 # ── Session-scoped tools (require a SparkSession) ────────────────────────────
 
@@ -79,6 +82,17 @@ def sql(session_id: str, query: str) -> str:
         session_id: Active session handle from start_session
         query: SQL query string (e.g. 'SELECT * FROM my_table WHERE age > 30')
     """
+    try:
+        validate_read_only(query)
+    except ReadOnlyViolation as e:
+        return json.dumps({"error": str(e), "type": "read_only_violation"})
+    except ParseError as e:
+        return json.dumps(
+            {
+                "error": f"SQL parse error (query not executed): {e}",
+                "type": "parse_error",
+            }
+        )
     try:
         spark = session_mod.registry.get(session_id)
     except KeyError as e:
