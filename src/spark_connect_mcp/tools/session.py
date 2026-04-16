@@ -1,9 +1,10 @@
-"""Session management MCP tools: start_session, close_session, list_sessions."""
+"""Session management MCP tools: start_session, close_session, list_sessions, set_preflight_threshold."""
 
 from __future__ import annotations
 
 import json
 import os
+from typing import Optional
 
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp import session as session_mod
@@ -118,4 +119,38 @@ def list_sessions() -> str:
             }
             for s in sessions
         ]
+    )
+
+
+@mcp.tool()
+def set_preflight_threshold(
+    session_id: str,
+    max_bytes: Optional[int] = None,
+    max_rows: Optional[int] = None,
+    enabled: Optional[bool] = None,
+) -> str:
+    """Override preflight size-check thresholds for this session.
+
+    Use this to raise or lower the byte/row limits that trigger preflight
+    warnings, or to disable preflight entirely for a session.
+
+    Args:
+        session_id: The session to configure.
+        max_bytes: Override the max bytes threshold (default env var or 1 GB).
+        max_rows: Override the max rows threshold (default env var or 10M).
+        enabled: Set False to disable preflight for this session.
+    """
+    try:
+        from spark_connect_mcp.preflight import _session_overrides
+    except ImportError:
+        return json.dumps({"error": "preflight module not available"})
+    overrides = _session_overrides.setdefault(session_id, {})
+    if max_bytes is not None:
+        overrides["max_bytes"] = max_bytes
+    if max_rows is not None:
+        overrides["max_rows"] = max_rows
+    if enabled is not None:
+        overrides["enabled"] = enabled
+    return json.dumps(
+        {"status": "ok", "session_id": session_id, "overrides": overrides}
     )

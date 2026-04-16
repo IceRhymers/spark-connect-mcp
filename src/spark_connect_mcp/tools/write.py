@@ -6,6 +6,7 @@ import json
 
 from spark_connect_mcp import dataframes as df_mod
 from spark_connect_mcp.server import mcp
+from spark_connect_mcp.tools.exec import _run_preflight
 
 
 @mcp.tool()
@@ -16,6 +17,7 @@ def save(  # noqa: A001
     mode: str = "error",
     partition_by: list[str] | None = None,
     cluster_by: list[str] | None = None,
+    force: bool = False,
 ) -> str:
     """Write a DataFrame to a file path, triggering a Spark job.
 
@@ -36,6 +38,7 @@ def save(  # noqa: A001
         partition_by: Column names for Hive-style partitioning.
         cluster_by: Column names for Delta liquid clustering.
             Requires Spark 4.0+ or Databricks Runtime 14.2+.
+        force: Skip preflight size check (default False).
 
     Returns:
         JSON with status "ok" and path on success, or error details on failure.
@@ -53,6 +56,9 @@ def save(  # noqa: A001
         df = df_mod.registry.get(df_id)
     except KeyError as e:
         return json.dumps({"error": str(e), "df_id": df_id})
+    warning = _run_preflight(df, force)
+    if warning is not None:
+        return warning
     try:
         writer = df.write.format(format).mode(mode)
         if partition_by:
@@ -73,6 +79,7 @@ def save_as_table(
     mode: str = "error",
     partition_by: list[str] | None = None,
     cluster_by: list[str] | None = None,
+    force: bool = False,
 ) -> str:
     """Write a DataFrame to a managed or external table, triggering a Spark job.
 
@@ -95,6 +102,7 @@ def save_as_table(
         partition_by: Column names for Hive-style partitioning.
         cluster_by: Column names for Delta liquid clustering.
             Requires Spark 4.0+ or Databricks Runtime 14.2+.
+        force: Skip preflight size check (default False).
 
     Returns:
         JSON with status "ok" and table name on success, or error details on failure.
@@ -112,6 +120,9 @@ def save_as_table(
         df = df_mod.registry.get(df_id)
     except KeyError as e:
         return json.dumps({"error": str(e), "df_id": df_id})
+    warning = _run_preflight(df, force)
+    if warning is not None:
+        return warning
     try:
         writer = df.write.format(format).mode(mode)
         if partition_by:
