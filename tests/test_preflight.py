@@ -31,6 +31,11 @@ EXPLAIN_LOW_CONFIDENCE = """\
 Statistics(sizeInBytes=47.3 GiB)
 """
 
+EXPLAIN_LOW_CONFIDENCE_SMALL = """\
+== Optimized Logical Plan ==
+Statistics(sizeInBytes=96.5 KiB)
+"""
+
 EXPLAIN_CARTESIAN = """\
 == Optimized Logical Plan ==
 CartesianProduct
@@ -120,6 +125,20 @@ class TestEstimateSizeLowConfidence:
 
         assert result is not None
         assert result.should_block is False
+
+    def test_low_confidence_warning_text(self):
+        """Low-confidence warning should say 'Low sized' not 'Large'."""
+        from spark_connect_mcp.preflight import estimate_size
+
+        df = _mock_df_with_explain(EXPLAIN_LOW_CONFIDENCE_SMALL)
+        result = estimate_size(df, session_id="s1")
+
+        assert result is not None
+        assert result.confidence == Confidence.LOW
+        assert result.should_block is False
+        assert result.warning is not None
+        assert "Low sized DataFrame" in result.warning
+        assert "Large DataFrame" not in result.warning
 
 
 class TestEstimateSizeCartesianProduct:

@@ -223,7 +223,8 @@ def estimate_size(
         # CartesianProduct always warns
         should_block = True
     elif confidence == Confidence.LOW:
-        # Low confidence = fail-open, never block
+        # Low confidence = fail-open, never block. We still surface a result
+        # so callers know stats were incomplete.
         should_block = False
     elif bytes_exceed or rows_exceed:
         should_block = True
@@ -234,8 +235,10 @@ def estimate_size(
     # Build warning message
     size_display = _format_size(root_bytes)
     rows_display = _format_rows(root_rows) if root_rows else "unknown"
-    if confidence == "cross_join":
+    if confidence == Confidence.CROSS_JOIN:
         warning = f"CartesianProduct detected ({confidence} confidence): ~{size_display}, ~{rows_display} rows"
+    elif confidence == Confidence.LOW:
+        warning = f"Low sized DataFrame detected ({confidence} confidence): ~{size_display}, ~{rows_display} rows"
     else:
         warning = f"Large DataFrame detected ({confidence} confidence): ~{size_display}, ~{rows_display} rows"
 
