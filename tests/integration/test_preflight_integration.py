@@ -1,4 +1,4 @@
-"""Integration tests for preflight — requires a real local Spark session."""
+"""Integration tests for preflight — requires a live Spark / Databricks Connect session."""
 
 from __future__ import annotations
 
@@ -9,22 +9,23 @@ from spark_connect_mcp.preflight import Confidence
 
 @pytest.mark.integration
 class TestPreflightIntegration:
-    """Integration tests using a real local Spark session."""
+    """Integration tests using a real Spark session via the project's connector stack."""
 
     def test_estimate_size_with_real_dataframe(self):
+        """estimate_size() runs against a real DataFrame without crashing."""
         pytest.importorskip("pyspark")
-        from pyspark.sql import SparkSession
 
+        from spark_connect_mcp import session as session_mod
+        from spark_connect_mcp.connectors import detect_connection_type, get_connector
         from spark_connect_mcp.preflight import estimate_size
 
-        spark = (
-            SparkSession.builder.master("local[1]")
-            .appName("preflight-test")
-            .getOrCreate()
-        )
+        connection_type = detect_connection_type()
+        connector = get_connector(connection_type)
+        session_id = session_mod.registry.start(connector, {"connection_type": connection_type})
         try:
+            spark = session_mod.registry.get(session_id)
             df = spark.range(1000)
-            result = estimate_size(df)
+            result = estimate_size(df, session_id=session_id)
 
             # Result is either None (below threshold / no stats) or a valid PreflightResult
             if result is not None:
@@ -35,4 +36,4 @@ class TestPreflightIntegration:
                 )
                 assert isinstance(result.should_block, bool)
         finally:
-            spark.stop()
+            session_mod.registry.close(session_id)
