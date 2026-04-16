@@ -5,9 +5,12 @@ from __future__ import annotations
 import io
 import json
 from contextlib import redirect_stdout
-from typing import Any
+from typing import TYPE_CHECKING
 
 from spark_connect_mcp import dataframes as df_mod
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame
 from spark_connect_mcp.preflight import estimate_size
 from spark_connect_mcp.server import mcp
 
@@ -15,7 +18,7 @@ from spark_connect_mcp.server import mcp
 MAX_COLLECT_LIMIT = 1000
 
 
-def _run_preflight(df: Any, force: bool) -> str | None:
+def _run_preflight(df: DataFrame, force: bool) -> str | None:
     """Run preflight size check. Returns warning JSON string if blocked, else None."""
     if force:
         return None

@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from spark_connect_mcp.preflight import Confidence, PreflightResult
 from spark_connect_mcp.tools.exec import collect, count, describe, show
 
 # ── Explain output fixtures ─────────────────────────────────────────────────
@@ -73,7 +76,7 @@ class TestEstimateSizeHighConfidence:
         result = estimate_size(df, session_id="s1")
 
         assert result is not None
-        assert result.confidence == "high"
+        assert result.confidence == Confidence.HIGH
 
     def test_high_confidence_has_size_and_rows(self):
         from spark_connect_mcp.preflight import estimate_size
@@ -96,7 +99,7 @@ class TestEstimateSizeMediumConfidence:
         result = estimate_size(df, session_id="s1")
 
         assert result is not None
-        assert result.confidence == "medium"
+        assert result.confidence == Confidence.MEDIUM
 
 
 class TestEstimateSizeLowConfidence:
@@ -109,7 +112,7 @@ class TestEstimateSizeLowConfidence:
         result = estimate_size(df, session_id="s1")
 
         assert result is not None
-        assert result.confidence == "low"
+        assert result.confidence == Confidence.LOW
 
     def test_low_confidence_is_not_blocking(self):
         from spark_connect_mcp.preflight import estimate_size
@@ -131,7 +134,7 @@ class TestEstimateSizeCartesianProduct:
         result = estimate_size(df, session_id="s1")
 
         assert result is not None
-        assert result.confidence == "cross_join"
+        assert result.confidence == Confidence.CROSS_JOIN
 
     def test_cross_join_always_warns(self):
         from spark_connect_mcp.preflight import estimate_size
@@ -281,15 +284,16 @@ class TestPreflightDisabledEnvVar:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _make_preflight_warning(confidence="high"):
+def _make_preflight_warning(confidence: str = "high") -> PreflightResult:
     """Build a mock PreflightResult that represents a warning."""
     from spark_connect_mcp.preflight import PreflightResult
 
+    conf = Confidence(confidence)
     return PreflightResult(
-        confidence=confidence,
+        confidence=conf,
         estimated_bytes=50 * 1024**3,  # 50 GiB
         estimated_rows=150_000_000,
-        should_block=confidence not in ("low",),
+        should_block=conf != Confidence.LOW,
         warning=f"Large DataFrame detected ({confidence} confidence): ~50.0 GiB, ~150M rows",
     )
 
@@ -457,6 +461,94 @@ class TestSetPreflightThreshold:
         result = estimate_size(df, session_id="s1")
 
         assert result is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Complex real-world Databricks explain plan test
+# ══════════════════════════════════════════════════════════════════════════════
+
+EXPLAIN_DATABRICKS_COMPLEX = """\
+== Optimized Logical Plan ==
+Aggregate [s_store_sk], [s_store_sk, count(1) AS count(1)L], Statistics(sizeInBytes=20.0 B, rowCount=1, hints=none)
++- Project [s_store_sk], Statistics(sizeInBytes=18.5 MB, rowCount=1.62E+6, hints=none)
+   +- Join Inner, (d_date_sk = ss_sold_date_sk), Statistics(sizeInBytes=30.8 MB, rowCount=1.62E+6, hints=none)
+      :- Project [ss_sold_date_sk, s_store_sk], Statistics(sizeInBytes=39.1 GB, rowCount=2.63E+9, hints=none)
+      :  +- Join Inner, (s_store_sk = ss_store_sk), Statistics(sizeInBytes=48.9 GB, rowCount=2.63E+9, hints=none)
+      :     :- Project [ss_store_sk, ss_sold_date_sk], Statistics(sizeInBytes=39.1 GB, rowCount=2.63E+9, hints=none)
+      :     :  +- Filter (isnotnull(ss_store_sk) && isnotnull(ss_sold_date_sk)), Statistics(sizeInBytes=39.1 GB, rowCount=2.63E+9, hints=none)
+      :     :     +- Relation[ss_store_sk,ss_sold_date_sk] parquet, Statistics(sizeInBytes=134.6 GB, rowCount=2.88E+9, hints=none)
+      :     +- Project [s_store_sk], Statistics(sizeInBytes=11.7 KB, rowCount=1.00E+3, hints=none)
+      :        +- Filter isnotnull(s_store_sk), Statistics(sizeInBytes=11.7 KB, rowCount=1.00E+3, hints=none)
+      :           +- Relation[s_store_sk] parquet, Statistics(sizeInBytes=88.0 KB, rowCount=1.00E+3, hints=none)
+      +- Project [d_date_sk], Statistics(sizeInBytes=12.0 B, rowCount=1, hints=none)
+         +- Filter ((((isnotnull(d_year) && isnotnull(d_date)) && (d_year = 2000)) && (d_date = 2000-12-31)) && isnotnull(d_date_sk)), Statistics(sizeInBytes=38.0 B, rowCount=1, hints=none)
+            +- Relation[d_date_sk,d_date,d_year] parquet, Statistics(sizeInBytes=1786.7 KB, rowCount=7.30E+4, hints=none)
+"""
+
+
+class TestDatabricksComplexExplain:
+    """Complex real-world Databricks explain output with hints=none in Statistics."""
+
+    def test_below_default_threshold_returns_none(self):
+        from spark_connect_mcp.preflight import estimate_size
+
+        df = _mock_df_with_explain(EXPLAIN_DATABRICKS_COMPLEX)
+        result = estimate_size(df, session_id="s1")
+
+        # Root sizeInBytes=20.0 B is far below default 1 GB threshold
+        assert result is None
+
+    def test_low_threshold_returns_preflight_result(self):
+        from spark_connect_mcp.preflight import estimate_size, set_preflight_threshold
+
+        # Set a very low threshold so the plan triggers a warning
+        set_preflight_threshold(session_id="s1-complex", max_bytes=1, max_rows=0)
+
+        df = _mock_df_with_explain(EXPLAIN_DATABRICKS_COMPLEX)
+        result = estimate_size(df, session_id="s1-complex")
+
+        assert result is not None
+        assert result.confidence == Confidence.HIGH
+        # Last Statistics line: sizeInBytes=1786.7 KB, rowCount=7.30E+4
+        assert result.estimated_bytes == int(1786.7 * 1e3)
+        assert result.estimated_rows == 73000
+        assert result.should_block is True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Integration test with real Spark session
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.integration
+class TestPreflightIntegration:
+    """Integration tests using a real local Spark session."""
+
+    def test_estimate_size_with_real_dataframe(self):
+        pytest.importorskip("pyspark")
+        from pyspark.sql import SparkSession
+
+        from spark_connect_mcp.preflight import estimate_size
+
+        spark = (
+            SparkSession.builder.master("local[1]")
+            .appName("preflight-test")
+            .getOrCreate()
+        )
+        try:
+            df = spark.range(1000)
+            result = estimate_size(df)
+
+            # Result is either None (below threshold / no stats) or a valid PreflightResult
+            if result is not None:
+                assert isinstance(result.confidence, Confidence)
+                assert (
+                    isinstance(result.estimated_bytes, int)
+                    or result.estimated_bytes is None
+                )
+                assert isinstance(result.should_block, bool)
+        finally:
+            spark.stop()
 
 
 # ── Integration tests use the imports from the top of this file ─────────────

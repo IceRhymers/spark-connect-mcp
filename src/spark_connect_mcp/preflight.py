@@ -6,13 +6,24 @@ import os
 import re
 from contextlib import redirect_stdout
 from dataclasses import dataclass
+from enum import StrEnum
 from io import StringIO
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame
+
+
+class Confidence(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    CROSS_JOIN = "cross_join"
 
 
 @dataclass
 class PreflightResult:
-    confidence: str  # "high", "medium", "low", "cross_join"
+    confidence: Confidence
     estimated_bytes: int | None
     estimated_rows: int | None
     should_block: bool
@@ -22,31 +33,37 @@ class PreflightResult:
 # Module-level dict for per-session threshold overrides.
 _session_overrides: dict[str, dict] = {}
 
-# Size unit multipliers (binary prefixes).
-_SIZE_UNITS: dict[str, int] = {
+# Size unit multipliers (binary and decimal prefixes).
+_SIZE_UNITS: dict[str, float] = {
     "B": 1,
     "KiB": 1024,
     "MiB": 1024**2,
     "GiB": 1024**3,
     "TiB": 1024**4,
+    "KB": 1e3,
+    "MB": 1e6,
+    "GB": 1e9,
+    "TB": 1e12,
 }
 
 # Default thresholds.
 _DEFAULT_MAX_BYTES = 1_073_741_824  # 1 GB
 _DEFAULT_MAX_ROWS = 10_000_000  # 10M
 
-# Regex for Statistics lines.
-_STATS_RE = re.compile(r"Statistics\(sizeInBytes=([^,)]+)(?:,\s*rowCount=([^,)]+))?\)")
+# Regex for Statistics lines (handles extra fields like hints=none after rowCount).
+_STATS_RE = re.compile(
+    r"Statistics\(sizeInBytes=([^,)]+)(?:,\s*rowCount=([^,)]+))?[^)]*\)"
+)
 
 # Regex to detect join lines (before their Statistics).
 _JOIN_RE = re.compile(r"(Join\s+\w+|CartesianProduct)")
 
 
 def _parse_size(size_str: str) -> int:
-    """Parse a human-readable size string like '47.3 GiB' into bytes."""
+    """Parse a human-readable size string like '47.3 GiB' or '18.5 MB' into bytes."""
     size_str = size_str.strip()
     # Check longest units first to avoid "B" matching "KiB", "GiB", etc.
-    for unit in ("TiB", "GiB", "MiB", "KiB", "B"):
+    for unit in ("TiB", "GiB", "MiB", "KiB", "TB", "GB", "MB", "KB", "B"):
         if size_str.endswith(unit):
             num = size_str[: -len(unit)].strip()
             return int(float(num) * _SIZE_UNITS[unit])
@@ -96,7 +113,9 @@ def _get_thresholds(session_id: str | None) -> tuple[int, int, bool]:
     return max_bytes, max_rows, True
 
 
-def estimate_size(df: Any, session_id: str | None = None) -> PreflightResult | None:  # noqa: C901
+def estimate_size(
+    df: DataFrame, session_id: str | None = None
+) -> PreflightResult | None:  # noqa: C901
     """Estimate DataFrame size from Spark CBO statistics.
 
     Returns a PreflightResult if the estimated size exceeds thresholds,
@@ -178,18 +197,18 @@ def estimate_size(df: Any, session_id: str | None = None) -> PreflightResult | N
 
     # Determine confidence
     if has_cartesian:
-        confidence = "cross_join"
+        confidence = Confidence.CROSS_JOIN
     elif root_rows is not None:
         if join_adjacent_stats:
             all_join_have_rows = all(rc is not None for _, rc in join_adjacent_stats)
-            confidence = "high" if all_join_have_rows else "medium"
+            confidence = Confidence.HIGH if all_join_have_rows else Confidence.MEDIUM
         else:
-            confidence = "high"
+            confidence = Confidence.HIGH
     else:
-        confidence = "low"
+        confidence = Confidence.LOW
 
     # Apply thresholds based on confidence
-    if confidence == "medium":
+    if confidence == Confidence.MEDIUM:
         effective_max_bytes = max_bytes * 10
         effective_max_rows = max_rows * 10
     else:
@@ -200,10 +219,10 @@ def estimate_size(df: Any, session_id: str | None = None) -> PreflightResult | N
     bytes_exceed = root_bytes > effective_max_bytes
     rows_exceed = root_rows is not None and root_rows > effective_max_rows
 
-    if confidence == "cross_join":
+    if confidence == Confidence.CROSS_JOIN:
         # CartesianProduct always warns
         should_block = True
-    elif confidence == "low":
+    elif confidence == Confidence.LOW:
         # Low confidence = fail-open, never block
         should_block = False
     elif bytes_exceed or rows_exceed:
