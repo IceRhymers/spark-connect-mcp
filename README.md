@@ -128,6 +128,24 @@ preflight check entirely and execute immediately:
 }
 ```
 
+## SQL Tool
+
+The `sql` tool executes a SQL query against an active Spark session. By default it enforces **read-only** SQL — only `SELECT`, `WITH...SELECT`, `SHOW`, `DESCRIBE`, and `EXPLAIN` statements are permitted. Write operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `CREATE`, `ALTER`, `MERGE`, `TRUNCATE`, `COPY INTO`, `OPTIMIZE`, `VACUUM`, etc.) are rejected before reaching Spark.
+
+Multi-statement SQL (e.g. `SELECT 1; DROP TABLE foo`) is also blocked — submit one statement at a time.
+
+Malformed SQL that cannot be parsed is rejected fail-closed — the query is never executed.
+
+### Allowing write SQL
+
+To permit write operations, set the escape-hatch environment variable:
+
+```bash
+export SPARK_CONNECT_MCP_ALLOW_WRITE_SQL=true
+```
+
+This bypasses all read-only enforcement. Intended for trusted environments where the agent needs DDL or DML access.
+
 ## Status
 
 Under active development. See [issues](https://github.com/IceRhymers/spark-connect-mcp/issues) for the roadmap.
