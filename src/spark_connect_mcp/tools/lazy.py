@@ -168,7 +168,9 @@ def with_column(df_id: str, name: str, expression: str) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.withColumn(name, F.expr(expression))
-        new_df_id = df_mod.registry.register(session_id, new_df, f"with_column({df_id[:8]}, {name})")
+        new_df_id = df_mod.registry.register(
+            session_id, new_df, f"with_column({df_id[:8]}, {name})"
+        )
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -189,7 +191,9 @@ def drop(df_id: str, columns: list[str]) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.drop(*columns)
-        new_df_id = df_mod.registry.register(session_id, new_df, f"drop_cols({df_id[:8]})")
+        new_df_id = df_mod.registry.register(
+            session_id, new_df, f"drop_cols({df_id[:8]})"
+        )
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -235,7 +239,9 @@ def limit(df_id: str, n: int) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.limit(n)
-        new_df_id = df_mod.registry.register(session_id, new_df, f"limit({df_id[:8]}, {n})")
+        new_df_id = df_mod.registry.register(
+            session_id, new_df, f"limit({df_id[:8]}, {n})"
+        )
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -262,7 +268,9 @@ def group_by_agg(df_id: str, group_cols: list[str], agg_exprs: list[str]) -> str
     try:
         agg_cols = [F.expr(e) for e in agg_exprs]
         new_df = df.groupBy(*group_cols).agg(*agg_cols)
-        new_df_id = df_mod.registry.register(session_id, new_df, f"group_by_agg({df_id[:8]})")
+        new_df_id = df_mod.registry.register(
+            session_id, new_df, f"group_by_agg({df_id[:8]})"
+        )
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -293,7 +301,9 @@ def join(
         return json.dumps({"error": str(e)})
     try:
         new_df = left_df.join(right_df, on, how)
-        new_df_id = df_mod.registry.register(session_id, new_df, f"join({left_df_id[:8]}, {right_df_id[:8]})")
+        new_df_id = df_mod.registry.register(
+            session_id, new_df, f"join({left_df_id[:8]}, {right_df_id[:8]})"
+        )
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e)})
