@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ class DataFrameRegistry:
             self._metadata[df_id] = RegisteredFrame(
                 df_id=df_id,
                 session_id=session_id,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(datetime.UTC),
                 origin=origin,
             )
         return df_id
