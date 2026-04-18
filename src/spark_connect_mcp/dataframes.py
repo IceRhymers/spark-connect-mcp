@@ -95,7 +95,9 @@ class DataFrameRegistry:
         """Return RegisteredFrame metadata for all handles in a session, sorted by created_at."""
         with self._lock:
             df_ids = self._session_index.get(session_id, set())
-            frames = [self._metadata[df_id] for df_id in df_ids if df_id in self._metadata]
+            frames = [
+                self._metadata[df_id] for df_id in df_ids if df_id in self._metadata
+            ]
         return sorted(frames, key=lambda f: f.created_at)
 
     def session_for(self, df_id: str) -> str:
