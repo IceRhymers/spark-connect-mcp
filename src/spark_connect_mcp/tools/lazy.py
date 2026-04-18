@@ -40,7 +40,7 @@ def load(session_id: str, path: str, format: str = "parquet") -> str:  # noqa: A
         return json.dumps({"error": str(e), "session_id": session_id})
     try:
         df = spark.read.format(format).load(path)
-        df_id = df_mod.registry.register(session_id, df)
+        df_id = df_mod.registry.register(session_id, df, f"load:{path} ({format})")
         return json.dumps({"df_id": df_id, "message": f"Loaded {path} as {format}"})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
@@ -65,7 +65,7 @@ def table(session_id: str, name: str) -> str:
         return json.dumps({"error": str(e), "session_id": session_id})
     try:
         df = spark.read.table(name)
-        df_id = df_mod.registry.register(session_id, df)
+        df_id = df_mod.registry.register(session_id, df, f"table:{name}")
         return json.dumps({"df_id": df_id, "message": f"Loaded table {name}"})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
@@ -99,7 +99,7 @@ def sql(session_id: str, query: str) -> str:
         return json.dumps({"error": str(e), "session_id": session_id})
     try:
         df = spark.sql(query)
-        df_id = df_mod.registry.register(session_id, df)
+        df_id = df_mod.registry.register(session_id, df, f"sql:{query.strip()[:80]}")
         return json.dumps({"df_id": df_id, "message": "SQL executed lazily"})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "session_id": session_id})
@@ -123,7 +123,7 @@ def filter(df_id: str, condition: str) -> str:  # noqa: A001
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.filter(condition)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"filter({df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -146,7 +146,7 @@ def select(df_id: str, columns: list[str]) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.selectExpr(*columns)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"select({df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -168,7 +168,7 @@ def with_column(df_id: str, name: str, expression: str) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.withColumn(name, F.expr(expression))
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"with_column({df_id[:8]}, {name})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -189,7 +189,7 @@ def drop(df_id: str, columns: list[str]) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.drop(*columns)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"drop_cols({df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -212,7 +212,7 @@ def sort(df_id: str, columns: list[str], ascending: bool = True) -> str:
     try:
         sort_cols = [F.col(c).asc() if ascending else F.col(c).desc() for c in columns]
         new_df = df.sort(*sort_cols)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"sort({df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -235,7 +235,7 @@ def limit(df_id: str, n: int) -> str:
         return json.dumps({"error": str(e), "df_id": df_id})
     try:
         new_df = df.limit(n)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"limit({df_id[:8]}, {n})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -262,7 +262,7 @@ def group_by_agg(df_id: str, group_cols: list[str], agg_exprs: list[str]) -> str
     try:
         agg_cols = [F.expr(e) for e in agg_exprs]
         new_df = df.groupBy(*group_cols).agg(*agg_cols)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"group_by_agg({df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e), "df_id": df_id})
@@ -293,7 +293,7 @@ def join(
         return json.dumps({"error": str(e)})
     try:
         new_df = left_df.join(right_df, on, how)
-        new_df_id = df_mod.registry.register(session_id, new_df)
+        new_df_id = df_mod.registry.register(session_id, new_df, f"join({left_df_id[:8]}, {right_df_id[:8]})")
         return json.dumps({"df_id": new_df_id})
     except Exception as e:  # noqa: BLE001
         return json.dumps({"error": str(e)})
