@@ -10,7 +10,6 @@ import pytest
 
 from spark_connect_mcp.dataframes import DataFrameRegistry, RegisteredFrame
 
-
 # ── RegisteredFrame metadata on register() ──────────────────────────────────
 
 
