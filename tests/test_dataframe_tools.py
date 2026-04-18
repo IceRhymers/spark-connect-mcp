@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,9 +18,9 @@ class TestRegisteredFrameMetadata:
     def test_register_stores_metadata(self) -> None:
         reg = DataFrameRegistry()
         df = MagicMock()
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         df_id = reg.register("sess-1", df, "load:data.parquet (parquet)")
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         meta = reg._metadata[df_id]
         assert isinstance(meta, RegisteredFrame)
