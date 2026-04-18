@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import threading
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
+
+
+@dataclass
+class RegisteredFrame:
+    df_id: str
+    session_id: str
+    created_at: datetime
+    origin: str
 
 
 class DataFrameRegistry:
@@ -31,14 +41,22 @@ class DataFrameRegistry:
         self._session_index: dict[str, set[str]] = {}
         # df_id -> session_id (reverse lookup for get/remove)
         self._df_to_session: dict[str, str] = {}
+        # df_id -> RegisteredFrame metadata
+        self._metadata: dict[str, RegisteredFrame] = {}
 
-    def register(self, session_id: str, df: DataFrame) -> str:
+    def register(self, session_id: str, df: DataFrame, origin: str = "") -> str:
         """Store a DataFrame and return its opaque df_id handle."""
         df_id = str(uuid.uuid4())
         with self._lock:
             self._frames[(session_id, df_id)] = df
             self._session_index.setdefault(session_id, set()).add(df_id)
             self._df_to_session[df_id] = session_id
+            self._metadata[df_id] = RegisteredFrame(
+                df_id=df_id,
+                session_id=session_id,
+                created_at=datetime.now(UTC),
+                origin=origin,
+            )
         return df_id
 
     def get(self, df_id: str) -> DataFrame:
@@ -60,6 +78,7 @@ class DataFrameRegistry:
                 return False
             self._frames.pop((session_id, df_id), None)
             self._session_index.get(session_id, set()).discard(df_id)
+            self._metadata.pop(df_id, None)
             return True
 
     def clear_session(self, session_id: str) -> int:
@@ -69,7 +88,17 @@ class DataFrameRegistry:
             for df_id in df_ids:
                 self._frames.pop((session_id, df_id), None)
                 self._df_to_session.pop(df_id, None)
+                self._metadata.pop(df_id, None)
             return len(df_ids)
+
+    def list_session(self, session_id: str) -> list[RegisteredFrame]:
+        """Return RegisteredFrame metadata for all handles in a session, sorted by created_at."""
+        with self._lock:
+            df_ids = self._session_index.get(session_id, set())
+            frames = [
+                self._metadata[df_id] for df_id in df_ids if df_id in self._metadata
+            ]
+        return sorted(frames, key=lambda f: f.created_at)
 
     def session_for(self, df_id: str) -> str:
         """Return the session_id that owns df_id. Raises KeyError if not found."""
