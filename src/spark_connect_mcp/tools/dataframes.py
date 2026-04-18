@@ -20,14 +20,16 @@ def list_dataframes(session_id: str) -> str:
         session_id: Active session handle from start_session
     """
     frames = df_mod.registry.list_session(session_id)
-    return json.dumps([
-        {
-            "df_id": f.df_id,
-            "created_at": f.created_at.isoformat(),
-            "origin": f.origin,
-        }
-        for f in frames
-    ])
+    return json.dumps(
+        [
+            {
+                "df_id": f.df_id,
+                "created_at": f.created_at.isoformat(),
+                "origin": f.origin,
+            }
+            for f in frames
+        ]
+    )
 
 
 @mcp.tool()
